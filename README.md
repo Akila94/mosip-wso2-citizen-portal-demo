@@ -20,7 +20,6 @@ Federates **WSO2 Identity Server 7.3.0** to **MOSIP eSignet v1.8.0**, then prove
 - [Configuration reference](#configuration-reference)
 - [Troubleshooting](#troubleshooting)
 - [Known limitations](#known-limitations)
-- [Security notes](#security-notes)
 
 ---
 
@@ -423,21 +422,6 @@ To reset only the WSO2 side, delete the JIT-provisioned user in Console → **Us
 **5 — What was and wasn't tested.**
 - *Tested:* the bridge's contract handling and cryptography, end to end, against a simulated eSignet that verifies the client assertion, enforces PKCE and returns UserInfo as `application/jwt`. Sixteen checks passed, including forged state, state replay, missing API key and CRLF injection.
 - *Not tested:* the exact error strings the real eSignet container returns, and the CSRF cookie extraction in Step 4.1.
-
----
-
-## Security notes
-
-> 🔴 **`private.jwk.json`, `public.jwk.json` and `cookies.txt` are present in `demo-setup/esignet-bridge/`, and this tree has no `.gitignore`.** Nothing is exposed today — the tree is not a git repository. **If it is ever initialised as one, add a `.gitignore` first** (runbook §6.3):
->
-> ```bash
-> echo -e "private.jwk.json\npublic.jwk.json\ncookies.txt\nnode_modules/\n.env" > .gitignore
-> ```
-
-- The private JWK **must never leave the bridge**.
-- When registering the authenticator in the IS Console, **do not select "No Authentication."** It works, but it leaves an unauthenticated identity-assertion endpoint open on your machine. Use **API Key** with header `x-api-key`.
-- `BRIDGE_API_KEY` empty means the key check is skipped entirely. The bridge prints `api key : DISABLED (dev only)` at startup — **if you see that before a demo, stop and fix it.**
-
 ---
 
 ## References
