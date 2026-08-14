@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ MOSIP eSignet federated authenticator for WSO2 Identity Server 7.3.0.
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>org.wso2.carbon.identity.outbound.auth.esignet</groupId>
+    <artifactId>identity-application-auth-esignet</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+    <name>MOSIP eSignet Federated Authenticator for WSO2 IS</name>
+
+    <modules>
+        <module>components/org.wso2.carbon.identity.application.authenticator.esignet</module>
+    </modules>
+
+    <properties>
+        <!--
+          Versions pinned to what WSO2 IS 7.3.0 actually ships, read from
+          product-is@support-7.3.0.x-full:pom.xml (framework :2681, inbound oauth :2710,
+          outbound oidc :2742, nimbus :2983). Do not bump these independently of the
+          product: the bundle is compiled against the exact classes in the runtime.
+        -->
+        <carbon.identity.framework.version>7.10.156</carbon.identity.framework.version>
+        <identity.inbound.auth.oauth.version>7.4.99</identity.inbound.auth.oauth.version>
+        <identity.outbound.auth.oidc.version>5.15.2</identity.outbound.auth.oidc.version>
+        <nimbus.jose.jwt.version>9.41.2</nimbus.jose.jwt.version>
+        <oltu.version>1.0.2</oltu.version>
+        <servlet.api.version>4.0.1</servlet.api.version>
+        <commons.logging.version>1.2</commons.logging.version>
+        <commons.lang3.version>3.12.0</commons.lang3.version>
+        <felix.scr.annotations.version>1.2.4</felix.scr.annotations.version>
+        <maven.bundle.plugin.version>5.1.9</maven.bundle.plugin.version>
+        <maven.compiler.plugin.version>3.11.0</maven.compiler.plugin.version>
+        <spotbugs.plugin.version>4.8.6.4</spotbugs.plugin.version>
+        <findsecbugs.plugin.version>1.13.0</findsecbugs.plugin.version>
+        <dependency.check.plugin.version>12.1.0</dependency.check.plugin.version>
+        <!--
+          IS 7.3.0 runs on JDK 11/17/21; 11 is the lowest supported, so target it. Uses
+          release rather than source/target so the JDK 11 platform APIs are what the
+          compiler links against, whichever of the three JDKs does the build.
+        -->
+        <maven.compiler.release>11</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <repositories>
+        <repository>
+            <id>wso2-nexus</id>
+            <name>WSO2 internal Repository</name>
+            <url>https://maven.wso2.org/nexus/content/groups/wso2-public/</url>
+            <releases>
+                <enabled>true</enabled>
+                <updatePolicy>daily</updatePolicy>
+                <checksumPolicy>ignore</checksumPolicy>
+            </releases>
+        </repository>
+    </repositories>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.wso2.carbon.identity.outbound.auth.oidc</groupId>
+                <artifactId>org.wso2.carbon.identity.application.authenticator.oidc</artifactId>
+                <version>${identity.outbound.auth.oidc.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.wso2.carbon.identity.framework</groupId>
+                <artifactId>org.wso2.carbon.identity.application.authentication.framework</artifactId>
+                <version>${carbon.identity.framework.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.wso2.carbon.identity.framework</groupId>
+                <artifactId>org.wso2.carbon.identity.application.common</artifactId>
+                <version>${carbon.identity.framework.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.wso2.carbon.identity.framework</groupId>
+                <artifactId>org.wso2.carbon.identity.core</artifactId>
+                <version>${carbon.identity.framework.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.wso2.carbon.identity.framework</groupId>
+                <artifactId>org.wso2.carbon.identity.base</artifactId>
+                <version>${carbon.identity.framework.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.wso2.carbon.identity.inbound.auth.oauth2</groupId>
+                <artifactId>org.wso2.carbon.identity.oauth</artifactId>
+                <version>${identity.inbound.auth.oauth.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.nimbusds</groupId>
+                <artifactId>nimbus-jose-jwt</artifactId>
+                <version>${nimbus.jose.jwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.oltu.oauth2</groupId>
+                <artifactId>org.apache.oltu.oauth2.client</artifactId>
+                <version>${oltu.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.oltu.oauth2</groupId>
+                <artifactId>org.apache.oltu.oauth2.common</artifactId>
+                <version>${oltu.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>javax.servlet</groupId>
+                <artifactId>javax.servlet-api</artifactId>
+                <version>${servlet.api.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-logging</groupId>
+                <artifactId>commons-logging</artifactId>
+                <version>${commons.logging.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>${commons.lang3.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>org.apache.felix.scr.ds-annotations</artifactId>
+                <version>${felix.scr.annotations.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.felix</groupId>
+                    <artifactId>maven-bundle-plugin</artifactId>
+                    <version>${maven.bundle.plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>${maven.compiler.plugin.version}</version>
+                    <configuration>
+                        <!--
+                          Deprecated API usage is a build failure, not a warning: this bundle
+                          extends product classes whose seams move between releases, and a
+                          deprecation that only ever appears as console noise is a deprecation
+                          nobody fixes. -Werror also covers unchecked and the rest of
+                          -Xlint:all, so the whole module must compile warning-free.
+                        -->
+                        <compilerArgs>
+                            <!--
+                              -processing is excluded because the OSGi declarative-services
+                              annotations are consumed by bnd at bundling time, not by an
+                              annotation processor javac knows about; without the exclusion
+                              every build reports 'no processor claimed these annotations'.
+                            -->
+                            <arg>-Xlint:all,-processing</arg>
+                            <arg>-Werror</arg>
+                        </compilerArgs>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+
+    <profiles>
+        <!--
+          The two build-time gates the WSO2 secure engineering guidelines ask for:
+          static analysis with Find Security Bugs (§8.2) and dependency vulnerability
+          analysis with OWASP Dependency Check (§1.17). Kept in a profile because
+          Dependency Check needs network access and an NVD API key:
+
+            mvn -Psecurity-checks verify                         # static analysis + dep check
+            mvn -Psecurity-checks verify -DnvdApiKey=$NVD_API_KEY
+            mvn -Psecurity-checks verify -Ddependency-check.skip=true   # static analysis only
+
+          Reports land in the module's target/ (spotbugsXml.xml, dependency-check-report.html).
+
+          The Find Security Bugs half runs offline and is green; its exclusions live in
+          spotbugs-exclude.xml, each with a justification. The Dependency Check half has NOT
+          been run here: NVD now rejects the legacy 1.1 JSON feeds with HTTP 403 (verified —
+          plugin 8.4.3 fails with 'Unable to download meta file … received response code
+          403'), so 12.x plus a free NVD API key is the only working configuration and no key
+          was available. Request one at https://nvd.nist.gov/developers/request-an-api-key.
+
+          Note that every runtime dependency here is 'provided' — supplied by the WSO2 IS
+          distribution, and none of it is shipped inside this bundle — so findings against
+          them are the product's to fix, not this bundle's. failBuildOnCVSS is therefore left
+          unset rather than gating the build on someone else's advisory.
+        -->
+        <profile>
+            <id>security-checks</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.github.spotbugs</groupId>
+                        <artifactId>spotbugs-maven-plugin</artifactId>
+                        <version>${spotbugs.plugin.version}</version>
+                        <configuration>
+                            <effort>Max</effort>
+                            <threshold>Low</threshold>
+                            <includeTests>true</includeTests>
+                            <!--
+                              Justified false positives only; see the file's comments. Kept
+                              per module and referenced through project.basedir so the
+                              profile works whether Maven is invoked here or in the module.
+                            -->
+                            <excludeFilterFile>${project.basedir}/spotbugs-exclude.xml</excludeFilterFile>
+                            <plugins>
+                                <plugin>
+                                    <groupId>com.h3xstream.findsecbugs</groupId>
+                                    <artifactId>findsecbugs-plugin</artifactId>
+                                    <version>${findsecbugs.plugin.version}</version>
+                                </plugin>
+                            </plugins>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.owasp</groupId>
+                        <artifactId>dependency-check-maven</artifactId>
+                        <version>${dependency.check.plugin.version}</version>
+                        <configuration>
+                            <formats>
+                                <format>HTML</format>
+                                <format>JSON</format>
+                            </formats>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+</project>

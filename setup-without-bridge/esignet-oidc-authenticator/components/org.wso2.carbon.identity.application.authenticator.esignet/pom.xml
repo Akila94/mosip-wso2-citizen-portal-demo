@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+
+    <parent>
+        <groupId>org.wso2.carbon.identity.outbound.auth.esignet</groupId>
+        <artifactId>identity-application-auth-esignet</artifactId>
+        <relativePath>../../pom.xml</relativePath>
+        <version>1.0.0</version>
+    </parent>
+
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>org.wso2.carbon.identity.application.authenticator.esignet</artifactId>
+    <packaging>bundle</packaging>
+    <name>MOSIP eSignet Federated Authenticator</name>
+
+    <dependencies>
+        <!--
+          Every dependency is 'provided': all of these are already OSGi bundles inside
+          <IS_HOME>/repository/components/plugins. The JAR we drop into dropins must
+          carry none of them.
+        -->
+        <dependency>
+            <groupId>org.wso2.carbon.identity.outbound.auth.oidc</groupId>
+            <artifactId>org.wso2.carbon.identity.application.authenticator.oidc</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.wso2.carbon.identity.framework</groupId>
+            <artifactId>org.wso2.carbon.identity.application.authentication.framework</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.wso2.carbon.identity.framework</groupId>
+            <artifactId>org.wso2.carbon.identity.application.common</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.wso2.carbon.identity.framework</groupId>
+            <artifactId>org.wso2.carbon.identity.core</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.wso2.carbon.identity.framework</groupId>
+            <artifactId>org.wso2.carbon.identity.base</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.wso2.carbon.identity.inbound.auth.oauth2</groupId>
+            <artifactId>org.wso2.carbon.identity.oauth</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.nimbusds</groupId>
+            <artifactId>nimbus-jose-jwt</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.oltu.oauth2</groupId>
+            <artifactId>org.apache.oltu.oauth2.client</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.oltu.oauth2</groupId>
+            <artifactId>org.apache.oltu.oauth2.common</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>commons-logging</groupId>
+            <artifactId>commons-logging</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.felix</groupId>
+            <artifactId>org.apache.felix.scr.ds-annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <!--
+          No test dependencies yet. When tests are added, mirror the upstream connector:
+            org.testng:testng, org.mockito:mockito-core,
+            org.wso2.carbon.identity.framework:org.wso2.carbon.identity.testutil
+          all with <scope>test</scope>, plus a src/test/resources/testng.xml.
+        -->
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>maven-bundle-plugin</artifactId>
+                <extensions>true</extensions>
+                <configuration>
+                    <instructions>
+                        <Bundle-SymbolicName>${project.artifactId}</Bundle-SymbolicName>
+                        <Bundle-Name>${project.artifactId}</Bundle-Name>
+                        <!--
+                          Two servlet-api providers on the compile classpath both declare the
+                          JavaServlet contract for javax.servlet.http, which bnd rejects.
+                          Import-Package below is explicit, so contract-derived versions are
+                          not needed.
+                        -->
+                        <_contract>!*</_contract>
+                        <Private-Package>
+                            org.wso2.carbon.identity.application.authenticator.esignet.internal
+                        </Private-Package>
+                        <!--
+                          Nimbus is imported without a version floor on purpose: the WSO2
+                          orbit build of nimbus-jose-jwt that reaches this build transitively
+                          (10.3.0.wso2v1) is newer than the one the IS 7.3.0 runtime exports,
+                          and a bnd-derived [10.3,11) range would leave the bundle unresolved
+                          in dropins. The JOSE APIs used here are stable across both.
+                        -->
+                        <!--
+                          !java.* is load-bearing: bnd otherwise emits Import-Package entries
+                          for JDK packages (java.nio.file, pulled in by the standalone
+                          JwkExporter, is the one that bites) and Carbon's Equinox system
+                          bundle does not export all of them. The bundle then stays
+                          UNRESOLVED in dropins with 'Could not resolve module ...
+                          Unresolved requirement: Import-Package: java.nio.file' in
+                          wso2carbon.log, the authenticator service is never registered, and
+                          the Console has no such authenticator to add to a connection. JDK
+                          classes reach the bundle through boot delegation instead.
+                        -->
+                        <Import-Package>
+                            !java.*,
+                            org.apache.commons.lang3,
+                            org.apache.commons.logging,
+                            org.apache.oltu.oauth2.client.request,
+                            org.apache.oltu.oauth2.client.response,
+                            org.apache.oltu.oauth2.common.exception,
+                            org.apache.oltu.oauth2.common.message.types,
+                            org.osgi.framework,
+                            org.osgi.service.component,
+                            com.nimbusds.jose;version=0,
+                            com.nimbusds.jose.crypto;version=0,
+                            com.nimbusds.jwt;version=0,
+                            org.wso2.carbon.identity.application.authentication.framework,
+                            org.wso2.carbon.identity.application.authentication.framework.context,
+                            org.wso2.carbon.identity.application.authentication.framework.exception,
+                            org.wso2.carbon.identity.application.authenticator.oidc,
+                            org.wso2.carbon.identity.application.common.model,
+                            org.wso2.carbon.identity.application.common.util,
+                            org.wso2.carbon.identity.core,
+                            org.wso2.carbon.identity.core.util,
+                            org.wso2.carbon.identity.oauth2,
+                            org.wso2.carbon.identity.oauth2.util,
+                            *
+                        </Import-Package>
+                        <Export-Package>
+                            !org.wso2.carbon.identity.application.authenticator.esignet.internal,
+                            org.wso2.carbon.identity.application.authenticator.esignet.*;
+                            version="${project.version}"
+                        </Export-Package>
+                    </instructions>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <release>${maven.compiler.release}</release>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

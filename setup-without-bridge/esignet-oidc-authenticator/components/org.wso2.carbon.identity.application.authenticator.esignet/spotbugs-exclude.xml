@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Find Security Bugs exclusions. Each one is a justified false positive; per the WSO2
+  secure engineering guidelines, suppressions carry a written justification and nothing
+  is excluded merely to make the build green.
+-->
+<FindBugsFilter>
+
+    <!--
+      CRLF_INJECTION_LOGS at EsignetOIDCAuthenticator: every value interpolated into a log
+      or exception message in this class already passes through LogSanitizer.clean(), which
+      strips CR, LF and tab and caps the length. The detector only recognises inline
+      replace()/replaceAll() calls, so it cannot see through the helper and reports the
+      sanitized call sites anyway. Verified by inspection: grep for 'LOG.' and for the
+      exception constructors in that class — there is no unsanitized interpolation.
+    -->
+    <Match>
+        <Class name="org.wso2.carbon.identity.application.authenticator.esignet.EsignetOIDCAuthenticator"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+
+    <!--
+      PATH_TRAVERSAL_IN at JwkExporter: this is a standalone operator CLI, not a request
+      handler. Its keystore path argument is supplied by whoever runs the tool — normally
+      demo.sh, which constructs the path itself from IS_DIR plus the file name read out of
+      deployment.toml — and that operator already has read access to the keystore and to the
+      whole IS installation. The guidelines' rule is about paths taken from end users;
+      administrator-supplied paths are the documented exception, and there is no privilege
+      boundary here to cross.
+    -->
+    <Match>
+        <Class name="org.wso2.carbon.identity.application.authenticator.esignet.tools.JwkExporter"/>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+    </Match>
+
+</FindBugsFilter>
