@@ -127,21 +127,23 @@ python3 --version         # used only for JSON pretty-printing in checks
 
 ### Where everything lives
 
-Clone the `mosip-wso2-citizen-portal-demo` repository wherever you like. **That clone is the workspace root**, and every file this runbook creates goes inside it — nothing is written to your home directory or anywhere else:
+Clone the `mosip-wso2-citizen-portal-demo` repository wherever you like. **The `esignet-bridge/` directory inside that clone is the workspace root for this runbook**, and every file it creates goes inside it — nothing is written to your home directory or anywhere else:
 
 ```
 <clone>/
-├── esignet-bridge/     # in the repo: server.js, genKeys.js, package.json
+├── esignet-bridge/                 # the workspace root for this runbook
+│   ├── server.js  genKeys.js  package.json   # in the repo
+│   ├── demo.sh                               # automates Steps 1-6, 15
 │   ├── private.jwk.json   public.jwk.json    # Step 3 writes these here
-│   └── preflight.sh                          # Step 15
-├── esignet/            # Step 1 clones this here
-└── wso2is-7.3.0/       # Step 5 unpacks this here
+│   ├── esignet/                              # Step 1 clones this here
+│   └── wso2is-7.3.0/                         # Step 5 unpacks this here
+└── setup-without-bridge/           # the same demo without the bridge (a JAR instead)
 ```
 
-Every path below is written relative to that root as `$REPO`. **In each new terminal, point `$REPO` at your clone first:**
+Every path below is written relative to that root as `$REPO`. **In each new terminal, point `$REPO` at the bridge directory first:**
 
 ```bash
-export REPO=~/mosip-wso2-citizen-portal-demo    # adjust to wherever you cloned it
+export REPO=~/mosip-wso2-citizen-portal-demo/esignet-bridge   # adjust to your clone
 cd "$REPO"
 ```
 
@@ -256,7 +258,7 @@ npm install jose express    # always run — node_modules/ is gitignored
 
 ### 6.2 The key generator
 
-`esignet-bridge/genKeys.js` in this repository does the whole job — read it there rather than retyping it. It generates a 2048-bit RS256 keypair, tags both halves with a shared random `kid` plus `alg: RS256` / `use: sig`, writes `private.jwk.json` and `public.jwk.json` **into the current working directory**, and prints the public JWK ready to paste into Step 4.
+`genKeys.js` in this repository does the whole job — read it there rather than retyping it. It generates a 2048-bit RS256 keypair, tags both halves with a shared random `kid` plus `alg: RS256` / `use: sig`, writes `private.jwk.json` and `public.jwk.json` **into the current working directory**, and prints the public JWK ready to paste into Step 4.
 
 That cwd behaviour is why Step 3.3 runs it from `$REPO/esignet-bridge`: the bridge later reads `private.jwk.json` the same way, so the pair must land beside `server.js`.
 
@@ -270,7 +272,7 @@ node genKeys.js
 
 > Never commit `private.jwk.json`. The repository's `.gitignore` at `$REPO/.gitignore` already covers both key files, `node_modules/` and `.env` — confirm rather than overwrite it:
 > ```bash
-> cd "$REPO" && git check-ignore -v esignet-bridge/private.jwk.json
+> cd "$REPO" && git check-ignore -v private.jwk.json
 > ```
 > If that prints nothing the file is *not* ignored; append the rule instead of redirecting over the file:
 > ```bash
@@ -357,7 +359,7 @@ Leave this terminal running. Startup takes 1–3 minutes.
 
 ### 9.1 The bridge
 
-`esignet-bridge/server.js` in this repository **is** the bridge — it is already written; do not recreate it. Read the file for the details; the shape is:
+`server.js` in this repository **is** the bridge — it is already written; do not recreate it. Read the file for the details; the shape is:
 
 | Part | What it does |
 |---|---|

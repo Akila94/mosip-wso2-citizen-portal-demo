@@ -140,7 +140,7 @@ https://localhost:9443/oauth2/authorize?response_type=code&client_id=FKmlVb9sUsY
 Or have the shell print the whole thing:
 
 ```bash
-CLIENT_ID=<paste-client-id-from-step-3>
+CLIENT_ID='PASTE_THE_CLIENT_ID_HERE'   # from the Protocol tab
 echo "https://localhost:9443/oauth2/authorize?response_type=code&client_id=$CLIENT_ID&redirect_uri=http://localhost:5173&scope=openid%20profile&code_challenge=$CHALLENGE&code_challenge_method=S256"
 ```
 
@@ -207,7 +207,7 @@ officially documented Postman path instead:
 2. Import `esignet/postman-collection/eSignet-with-mock.postman_environment.json` and select it
 3. Run **OIDC Client Mgmt → Mock → Get CSRF token**
 4. Set environment variables: `client_id` = `wso2-is-bridge`,
-   `client_public_key` = contents of `esignet-bridge/public.jwk.json`,
+   `client_public_key` = contents of `public.jwk.json`,
    `redirection_url` = `http://localhost:4000/callback`
 5. Run **OIDC Client Mgmt → Mock → Create OIDC client**
 

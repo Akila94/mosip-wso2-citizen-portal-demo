@@ -24,7 +24,10 @@ set -euo pipefail
 REPO="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$REPO"
 
-BRIDGE_DIR="$REPO/esignet-bridge"
+# server.js, genKeys.js and package.json sit beside this script, so the bridge
+# directory IS the repo directory. Everything the runbook creates — the eSignet
+# clone, the IS unpack, .env, .run/ — lands here too.
+BRIDGE_DIR="$REPO"
 ESIGNET_DIR="$REPO/esignet"
 COMPOSE_DIR="$ESIGNET_DIR/docker-compose"
 IS_DIR="$REPO/wso2is-7.3.0"
@@ -233,7 +236,7 @@ cmd_setup() {
   else
     say "generating the RS256 client keypair"
     (cd "$BRIDGE_DIR" && node genKeys.js >/dev/null)
-    ok "wrote esignet-bridge/private.jwk.json and public.jwk.json"
+    ok "wrote private.jwk.json and public.jwk.json"
   fi
 
   ensure_api_key
@@ -428,7 +431,7 @@ start_is() {
 
 start_bridge() {
   say "starting the bridge"
-  [ -f "$BRIDGE_DIR/private.jwk.json" ] || die "esignet-bridge/private.jwk.json missing — run './demo.sh setup'"
+  [ -f "$BRIDGE_DIR/private.jwk.json" ] || die "private.jwk.json missing — run './demo.sh setup'"
   [ -d "$BRIDGE_DIR/node_modules" ] || die "bridge dependencies missing — run './demo.sh setup'"
   if is_up "$BRIDGE/health"; then ok "bridge already running"; return 0; fi
   need_node22
