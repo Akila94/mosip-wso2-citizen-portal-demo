@@ -6,12 +6,8 @@ public.jwk.json
 .env
 
 # Fetched by the runbook, not authored here.
-# esignet/ is its own git clone (v1.8.0) — tracking it would nest a repo. Each variant
-# clones into its own folder, and both paths are anchored with a leading slash: an
-# unanchored 'esignet/' would also match the connector's Java package directory
-# (.../application/authenticator/esignet/) and silently ignore all of its sources.
-/esignet-bridge/esignet/
-/setup-without-bridge/esignet/
+# esignet/ is its own git clone (v1.8.0) — tracking it would nest a repo.
+# esignet/
 wso2is-7.3.0/
 wso2is-7.3.0.zip
 
@@ -22,8 +18,11 @@ npm-debug.log*
 # Deliberately not pinned — see CLAUDE.md. Delete this line if you decide to commit the lockfile.
 package-lock.json
 
-# Maven build output of the bridge-free variant's OSGi bundle.
+# setup-without-bridge/: the bridge-free variant, built as a Maven OSGi bundle.
+# Its wso2is-7.3.0/, .run/, *.log and the IS zip are already matched by the unanchored
+# patterns above; only the build output and its own eSignet clone need adding.
 target/
+setup-without-bridge/esignet/
 
 # Transient: throwaway CSRF cookie jar from client registration.
 cookies.txt
