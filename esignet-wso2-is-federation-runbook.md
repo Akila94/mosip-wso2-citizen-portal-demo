@@ -42,6 +42,8 @@
 | 1 | eSignet requires `private_key_jwt` at the token endpoint. WSO2's outbound OIDC connector only implements `client_secret_basic` and `client_secret_post`. | `TokenRequest.java` declares `@NotBlank private String client_assertion` and has no `client_secret` field at all. `OpenIDConnectAuthenticator.getAccessTokenRequest()` has exactly two branches — HTTP Basic and credentials-in-body. The string `client_assertion` does not appear anywhere in the `identity-outbound-auth-oidc` repository. |
 | 2 | eSignet returns UserInfo as a signed JWT. WSO2's connector parses UserInfo as plain JSON. | `UserInfoResponseHelper.processUserInfoResponse()` always returns JWS or JWE — even plain JSON from a plugin is signed into a JWS first. WSO2's `getSubjectAttributes()` calls `JSONUtils.parseJSON()`, which throws on a JWT. |
 
+**This is a limitation of the *outbound* connector only.** WSO2 IS fully supports `private_key_jwt` **inbound** — for OAuth clients authenticating *to* IS, where it is a selectable token-endpoint auth method and the default for FAPI apps. The two directions are separate implementations in separate repositories, so inbound support says nothing about outbound. If this comes up during the demo, that distinction is the honest answer; see §20 for the source citations on both sides.
+
 Additional constraint: **eSignet does not put user claims in the ID token**, so you cannot work around #2 by omitting the UserInfo endpoint URL.
 
 > **Do not** try to fix this by editing `mosip.esignet.supported.client.auth.methods`. That property only controls what the discovery document advertises. `client_assertion` is a mandatory field on the request DTO — there is no code path that accepts a client secret.
@@ -752,7 +754,9 @@ To reset only the WSO2 side, delete the JIT-provisioned user from the Console �
 | Only `private_key_jwt` is configured | `esignet-service/src/main/resources/application-default.properties` — `mosip.esignet.supported.client.auth.methods={'private_key_jwt'}` |
 | Client assertion signing algorithms | Same file — `{'RS256','PS256','ES256'}` |
 | UserInfo is always JWS or JWE | `oidc-service-impl/.../UserInfoResponseHelper.java` — plain JSON is signed into a JWS before return |
-| WSO2 outbound OIDC has no `private_key_jwt` | `identity-outbound-auth-oidc` — `getAccessTokenRequest()` has only Basic and body branches; `client_assertion` appears nowhere in the repository |
+| IS 7.3.0 ships outbound OIDC connector `5.15.2` | `product-is@support-7.3.0.x-full:pom.xml:2742` — `<identity.outbound.auth.oidc.version>5.15.2</identity.outbound.auth.oidc.version>` |
+| WSO2 **outbound** OIDC has no `private_key_jwt` | `identity-outbound-auth-oidc@v5.15.2:.../OpenIDConnectAuthenticator.java:1470-1536` — `getAccessTokenRequest()` branches only on the `IsBasicAuthEnabled` property: Basic header, else client id/secret in the body. `git grep -i "client_assertion\|private_key_jwt"` over the whole repo returns zero matches at `v5.15.2` and on `master`. |
+| WSO2 **inbound** OIDC *does* support `private_key_jwt` (opposite direction — not a workaround) | `identity-inbound-auth-oauth@support-7.4.99.x-full:.../oauth/common/OAuthConstants.java:298` defines the constant; `.../oauth/OAuthAdminServiceImpl.java:2913` handles it at app registration; `docs-is:.../7.3.0/docs/_data/configuration_catalog.yaml:1375` makes it a FAPI default and `:2317` documents the assertion-replay cache |
 | WSO2 outbound OIDC parses UserInfo as JSON | `OIDCCommonUtil.extractUserClaimsFromJsonPayload()` calls `JSONUtils.parseJSON()` |
 | eSignet has no logout endpoint | `docs/esignet-openapi.yaml` — no `end_session`, `logout`, `revoke`, `check_session` or back-channel path; only `/oauth/introspect` |
 | Local static OTP is `111111` | `mock-identity-system/.../AuthenticationServiceImpl.java` — `private static final String OTP_VALUE = "111111"` |

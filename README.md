@@ -61,6 +61,8 @@ Two dead ends worth naming, so nobody burns a day on them:
 - **You cannot skip UserInfo.** eSignet puts *no user claims in the ID token*, so omitting the UserInfo endpoint leaves you with no attributes.
 - **You cannot enable client secrets via config.** Changing `mosip.esignet.supported.client.auth.methods` only alters what the discovery document *advertises*. It does not create a code path that accepts a secret.
 
+And one clarification worth stating before someone else does: blocker #1 is about the **outbound** connector. **WSO2 IS does support `private_key_jwt` inbound** — for OAuth clients authenticating *to* IS, it is a selectable token-endpoint auth method and the FAPI default. Inbound and outbound are separate implementations in separate repositories, so inbound support does not help here and its absence outbound is not a claim that IS "lacks `private_key_jwt`". Runbook §20 cites both sides.
+
 ### The solution: a small bridge service
 
 WSO2 IS 7.1+ ships a **service-based custom authenticator** — you register an HTTP endpoint in the Console and IS calls it with a JSON contract. **No Java, no OSGi bundle, no JAR, no server restart.** The contract supports a `redirect` operation, which is exactly what OIDC federation needs.
