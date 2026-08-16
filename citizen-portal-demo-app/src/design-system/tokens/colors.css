@@ -1,0 +1,97 @@
+/* ============================================================
+   WSO2 — Color Tokens
+   Base palette is grayscale + signature orange (#FF7300),
+   with a deep navy / electric blue as the secondary accent.
+   ============================================================ */
+
+:root {
+  /* ---- Neutrals (from the 2026 brand palette) ---- */
+  --gray-0:   #ffffff;
+  --gray-50:  #f2f2f2; /* brand light */
+  --gray-100: #e6e6e5;
+  --gray-200: #d9d9d9; /* brand light gray */
+  --gray-300: #c2c2c0;
+  --gray-400: #969593;
+  --gray-500: #595856; /* brand mid gray */
+  --gray-600: #454442;
+  --gray-700: #333230;
+  --gray-800: #262626; /* brand dark */
+  --gray-900: #161616;
+  --gray-950: #0d0d0d; /* brand near-black */
+  --black:    #000000;
+
+  /* ---- Signature orange ---- */
+  --orange-50:  #fff3e9;
+  --orange-100: #ffe0c7;
+  --orange-200: #ffc599;
+  --orange-300: #ffa866;
+  --orange-400: #ff8c33;
+  --orange-500: #ff7300; /* PRIMARY brand orange */
+  --orange-600: #e66600;
+  --orange-700: #cc5a00;
+  --orange-800: #a34800;
+
+  /* ---- Secondary: deep navy / electric blue ---- */
+  --navy-950: #061026; /* gradient deep navy */
+  --navy-900: #0a1a3c;
+  --navy-800: #102a5e;
+  --blue-600: #1546c4;
+  --blue-500: #1b58f4; /* brand electric blue */
+  --blue-400: #4d7dff;
+  --blue-100: #d6e2ff;
+  --blue-50:  #eef3ff;
+
+  /* ---- Semantic status ---- */
+  --green-500:  #1f9d57;
+  --green-50:   #e8f7ee;
+  --amber-500:  #e0950b;
+  --amber-50:   #fdf3e0;
+  --red-500:    #d93a36;
+  --red-50:     #fbeae9;
+
+  /* ============================================================
+     SEMANTIC ALIASES — reference these in components
+     ============================================================ */
+
+  /* Surfaces */
+  --surface-page:    var(--gray-50);
+  --surface-card:    var(--gray-0);
+  --surface-raised:  var(--gray-0);
+  --surface-sunken:  var(--gray-100);
+  --surface-inverse: var(--gray-950);
+  --surface-hover:   var(--gray-100);
+
+  /* Text */
+  --text-primary:   var(--gray-950);
+  --text-secondary: var(--gray-500);
+  --text-muted:     var(--gray-400);
+  --text-inverse:   var(--gray-0);
+  --text-brand:     var(--orange-500);
+  --text-link:      var(--orange-600);
+
+  /* Borders */
+  --border-subtle:  var(--gray-100);
+  --border-default: var(--gray-200);
+  --border-strong:  var(--gray-300);
+  --border-inverse: rgba(255, 255, 255, 0.14);
+
+  /* Accent (interactive / brand) */
+  --accent:          var(--orange-500);
+  --accent-hover:    var(--orange-600);
+  --accent-pressed:  var(--orange-700);
+  --accent-subtle:   var(--orange-50);
+  --accent-contrast: var(--gray-0);
+
+  /* Focus ring */
+  --focus-ring: rgba(255, 115, 0, 0.45);
+
+  /* Status semantic */
+  --success:     var(--green-500);
+  --success-bg:  var(--green-50);
+  --warning:     var(--amber-500);
+  --warning-bg:  var(--amber-50);
+  --danger:      var(--red-500);
+  --danger-bg:   var(--red-50);
+  --info:        var(--blue-500);
+  --info-bg:     var(--blue-50);
+}

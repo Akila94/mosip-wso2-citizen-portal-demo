@@ -1,0 +1,13 @@
+/* ============================================================
+   WSO2 Design System — global entry point.
+   Consumers link THIS file only. Imports below reach every
+   token and @font-face in the system.
+   ============================================================ */
+
+@import "./tokens/fonts.css";
+@import "./tokens/colors.css";
+@import "./tokens/typography.css";
+@import "./tokens/spacing.css";
+@import "./tokens/elevation.css";
+@import "./tokens/gradients.css";
+@import "./tokens/base.css";

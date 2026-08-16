@@ -1,0 +1,71 @@
+<!-- @dsCard group="Components" viewport="700x440" name="Core" subtitle="Button · IconButton · Badge · Tag · Avatar · Card" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>
+  body { margin: 0; padding: 28px; background: var(--surface-card); }
+  .grp { display:flex; gap: 12px; align-items:center; flex-wrap:wrap; margin-bottom: 16px; }
+  .lbl { font: var(--fw-semibold) 11px var(--font-mono); color: var(--text-muted); width: 86px; flex:none; text-transform:uppercase; letter-spacing:.08em; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+  const { Button, IconButton, Badge, Tag, Avatar, Card } = window.WSO2DesignSystem_32d993;
+  const I = ({n,s=18}) => <i data-lucide={n} style={{width:s,height:s}} />;
+  function Demo(){
+    return (
+      <div>
+        <div className="grp"><span className="lbl">Button</span>
+          <Button>Start for free</Button>
+          <Button variant="secondary">Talk to an expert</Button>
+          <Button variant="ghost">Read the docs</Button>
+          <Button variant="danger" size="sm">Delete</Button>
+          <Button iconRight={<I n="arrow-right" s={16}/>}>Get started</Button>
+        </div>
+        <div className="grp"><span className="lbl">IconButton</span>
+          <IconButton aria-label="Search" variant="secondary"><I n="search"/></IconButton>
+          <IconButton aria-label="Copy"><I n="copy"/></IconButton>
+          <IconButton aria-label="More" variant="primary"><I n="plus"/></IconButton>
+        </div>
+        <div className="grp"><span className="lbl">Badge</span>
+          <Badge tone="success" dot>Active</Badge>
+          <Badge tone="brand">Beta</Badge>
+          <Badge tone="warning">Deprecated</Badge>
+          <Badge tone="info">v2.1</Badge>
+          <Badge tone="solid">New</Badge>
+        </div>
+        <div className="grp"><span className="lbl">Tag</span>
+          <Tag icon={<I n="map-pin" s={14}/>}>us-east</Tag>
+          <Tag onRemove={()=>{}}>environment: prod</Tag>
+        </div>
+        <div className="grp"><span className="lbl">Avatar</span>
+          <Avatar name="Asha Perera" size="sm"/>
+          <Avatar name="Marco Diaz"/>
+          <Avatar name="Lena Wu" size="lg"/>
+        </div>
+        <div style={{maxWidth:300}}>
+          <Card interactive>
+            <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:6}}>
+              <span style={{color:'var(--orange-500)'}}><I n="git-branch"/></span>
+              <strong style={{fontSize:15}}>Payments API</strong>
+              <Badge tone="success" dot style={{marginLeft:'auto'}}>Live</Badge>
+            </div>
+            <p style={{margin:0,fontSize:13,color:'var(--text-secondary)'}}>Full lifecycle API management with policy governance.</p>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(<Demo/>);
+  setTimeout(()=>window.lucide && window.lucide.createIcons(), 50);
+</script>
+</body>
+</html>

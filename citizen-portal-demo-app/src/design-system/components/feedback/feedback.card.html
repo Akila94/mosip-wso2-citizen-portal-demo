@@ -1,0 +1,40 @@
+<!-- @dsCard group="Components" viewport="700x280" name="Feedback" subtitle="Alert · Tooltip" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>
+  body { margin: 0; padding: 28px; background: var(--surface-card); }
+  .stack { display:flex; flex-direction:column; gap: 12px; max-width: 600px; }
+  .tip { display:flex; gap:16px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+  const { Alert, Tooltip, IconButton, Button } = window.WSO2DesignSystem_32d993;
+  const I = ({n}) => <i data-lucide={n} style={{width:18,height:18}} />;
+  function Demo(){
+    return (
+      <div className="stack">
+        <Alert tone="success" title="Deployed" onClose={()=>{}}>Your API revision is live in us-east.</Alert>
+        <Alert tone="warning" title="Approaching rate limit">You've used 82% of your monthly quota.</Alert>
+        <Alert tone="danger">Failed to connect to the gateway. Check your network policy.</Alert>
+        <div className="tip">
+          <Tooltip label="Copy endpoint URL"><IconButton aria-label="Copy" variant="secondary"><I n="copy"/></IconButton></Tooltip>
+          <Tooltip label="Redeploy" placement="bottom"><Button variant="secondary" size="sm">Hover me</Button></Tooltip>
+        </div>
+      </div>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(<Demo/>);
+  setTimeout(()=>window.lucide && window.lucide.createIcons(), 50);
+</script>
+</body>
+</html>

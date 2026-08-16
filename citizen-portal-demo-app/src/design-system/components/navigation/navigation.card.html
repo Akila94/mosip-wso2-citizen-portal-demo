@@ -1,0 +1,31 @@
+<!-- @dsCard group="Components" viewport="700x200" name="Navigation" subtitle="Tabs · Breadcrumb" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>
+  body { margin: 0; padding: 28px; background: var(--surface-card); }
+  .stack { display:flex; flex-direction:column; gap: 28px; max-width: 600px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+  const { Tabs, Breadcrumb } = window.WSO2DesignSystem_32d993;
+  function Demo(){
+    return (
+      <div className="stack">
+        <Breadcrumb items={[{label:"Projects",href:"#"},{label:"Payments API",href:"#"},{label:"Overview"}]} />
+        <Tabs tabs={["Overview","Endpoints","Policies","Deployments","Settings"]} />
+      </div>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(<Demo/>);
+</script>
+</body>
+</html>

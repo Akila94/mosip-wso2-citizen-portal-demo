@@ -1,0 +1,32 @@
+/* ============================================================
+   WSO2 — Base resets & document defaults
+   Light, minimal. Sets the page in Inter on the brand light
+   surface with primary text color.
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  line-height: var(--lh-normal);
+  letter-spacing: var(--ls-normal);
+  color: var(--text-primary);
+  background: var(--surface-page);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv05" 1, "ss01" 1; /* Inter: open digits, single-storey a */
+}
+
+h1, h2, h3, h4, h5, h6 { margin: 0; font-weight: var(--fw-semibold); letter-spacing: var(--ls-heading); }
+p { margin: 0; }
+
+a { color: var(--text-link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+::selection { background: var(--orange-200); color: var(--gray-950); }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

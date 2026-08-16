@@ -1,0 +1,41 @@
+<!-- @dsCard group="Components" viewport="700x300" name="Forms" subtitle="Input · Select · Checkbox · Switch" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>
+  body { margin: 0; padding: 28px; background: var(--surface-card); }
+  .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 20px 24px; max-width: 640px; }
+  .stack { display:flex; flex-direction:column; gap:14px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+  const { Input, Select, Checkbox, Switch } = window.WSO2DesignSystem_32d993;
+  const I = ({n}) => <i data-lucide={n} style={{width:16,height:16}} />;
+  function Demo(){
+    return (
+      <div className="grid">
+        <Input label="Work email" placeholder="you@company.com" iconLeft={<I n="mail"/>} />
+        <Input label="API name" defaultValue="orders" error="This name is taken" />
+        <Select label="Region" options={["us-east","eu-west","ap-south"]} />
+        <div className="stack" style={{justifyContent:'flex-end'}}>
+          <Checkbox label="Enable analytics" defaultChecked />
+          <Switch label="Rate limiting" defaultChecked />
+          <Switch label="Public access" />
+        </div>
+      </div>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(<Demo/>);
+  setTimeout(()=>window.lucide && window.lucide.createIcons(), 50);
+</script>
+</body>
+</html>

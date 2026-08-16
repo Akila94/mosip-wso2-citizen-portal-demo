@@ -1,0 +1,39 @@
+/* ============================================================
+   WSO2 — Radius, Border & Shadow Tokens
+   Clean, modern: moderate radii, soft layered shadows.
+   ============================================================ */
+
+:root {
+  /* Corner radii */
+  --radius-xs:  4px;
+  --radius-sm:  6px;
+  --radius-md:  8px;
+  --radius-lg:  12px;
+  --radius-xl:  16px;
+  --radius-2xl: 24px;
+  --radius-pill: 999px;
+
+  /* Border widths */
+  --border-thin: 1px; /* @kind other */
+  --border-med:  1.5px; /* @kind other */
+
+  /* Elevation — soft, low-spread, neutral */
+  --shadow-xs: 0 1px 2px rgba(13, 13, 13, 0.06);
+  --shadow-sm: 0 1px 3px rgba(13, 13, 13, 0.08), 0 1px 2px rgba(13, 13, 13, 0.04);
+  --shadow-md: 0 4px 12px rgba(13, 13, 13, 0.08), 0 2px 4px rgba(13, 13, 13, 0.04);
+  --shadow-lg: 0 12px 28px rgba(13, 13, 13, 0.12), 0 4px 8px rgba(13, 13, 13, 0.06);
+  --shadow-xl: 0 24px 56px rgba(13, 13, 13, 0.16), 0 8px 16px rgba(13, 13, 13, 0.08);
+
+  /* Orange glow — used sparingly on primary CTAs / focus moments */
+  --shadow-accent: 0 6px 20px rgba(255, 115, 0, 0.28);
+
+  /* Inner hairline used on dark surfaces */
+  --inner-hairline: inset 0 0 0 1px rgba(255, 255, 255, 0.08); /* @kind shadow */
+
+  /* Motion */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1); /* @kind other */
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1.2); /* @kind other */
+  --dur-fast: 120ms; /* @kind other */
+  --dur-base: 200ms; /* @kind other */
+  --dur-slow: 320ms; /* @kind other */
+}

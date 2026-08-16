@@ -1,0 +1,22 @@
+/* ============================================================
+   WSO2 — Signature Gradients
+   The hero motif: soft, blurred, atmospheric blends moving
+   between deep navy, electric blue, signature orange and a
+   warm cream highlight. Use full-bleed behind dark heroes,
+   as a subtle glow, or as the bitmap PNGs in /assets/gradients.
+   ============================================================ */
+
+:root {
+  /* CSS approximations of the bitmap brand gradients */
+  --grad-aurora: radial-gradient(120% 120% at 80% 15%, #7fd4ff 0%, #1b58f4 28%, #0a1a3c 55%, #1a0f08 78%, #ff5a1f 100%); /* @kind other */
+  --grad-sunset: linear-gradient(135deg, #0a1a3c 0%, #2a1b3d 35%, #c0341a 70%, #ff7300 100%); /* @kind other */
+  --grad-ember:  radial-gradient(100% 120% at 70% 10%, #ffd9b0 0%, #ff7300 35%, #c0341a 70%, #0a1a3c 100%); /* @kind other */
+  --grad-cream:  linear-gradient(120deg, #fbe9d8 0%, #ffd2a6 55%, #ff8c33 100%); /* @kind other */
+  --grad-night:  radial-gradient(120% 120% at 75% 30%, #1b2f5e 0%, #0a1a3c 50%, #061026 100%); /* @kind other */
+
+  /* Brand accent sweep (orange) for small UI moments */
+  --grad-accent: linear-gradient(120deg, #ff7300 0%, #ff8c33 100%); /* @kind other */
+
+  /* Subtle page wash */
+  --grad-wash: radial-gradient(80% 60% at 50% 0%, rgba(255,115,0,0.06) 0%, rgba(255,115,0,0) 60%); /* @kind other */
+}

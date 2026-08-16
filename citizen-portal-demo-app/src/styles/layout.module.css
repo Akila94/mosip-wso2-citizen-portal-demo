@@ -1,0 +1,34 @@
+.page { max-width: var(--container-max); margin: 0 auto; padding: var(--space-8); display: flex; flex-direction: column; gap: var(--space-8); width: 100%; }
+
+.cardGrid, .lifeEventGrid, .recordGrid, .walletGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); }
+.lifeEventGrid { grid-template-columns: repeat(4, 1fr); }
+
+.timelineTable, .attributesTable { border: 1.5px solid var(--border-default); border-radius: var(--radius-md); overflow: hidden; }
+
+.timelineHeadRow, .timelineRow {
+  display: grid; grid-template-columns: 140px 1fr 170px 170px; gap: var(--space-4); align-items: center; padding: var(--space-4) var(--space-5);
+}
+.timelineHeadRow { background: var(--gray-950); color: var(--gray-0); font: 600 11px var(--font-mono); letter-spacing: var(--ls-eyebrow); text-transform: uppercase; }
+.timelineRow { border-top: 1px dashed var(--border-default); }
+.timelineRow:first-of-type { border-top: none; }
+
+.attributesHeadRow, .attributesRow {
+  display: grid; grid-template-columns: 190px 1fr 260px 110px; gap: var(--space-4); align-items: center; padding: var(--space-4) var(--space-5);
+}
+.attributesHeadRow { background: var(--gray-950); color: var(--gray-0); font: 600 11px var(--font-mono); letter-spacing: var(--ls-eyebrow); text-transform: uppercase; }
+.attributesRow { border-top: 1px dashed var(--border-default); }
+.attributesRow:first-of-type { border-top: none; }
+
+.consentRow { display: grid; grid-template-columns: 1fr 1fr 140px 110px; gap: var(--space-4); align-items: center; padding: var(--space-4) var(--space-5); border-top: 1px dashed var(--border-default); }
+.consentRow:first-of-type { border-top: none; }
+
+@media (max-width: 1080px) {
+  .cardGrid, .lifeEventGrid, .recordGrid, .walletGrid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 720px) {
+  .page { padding: var(--space-5); }
+  .cardGrid, .lifeEventGrid, .recordGrid, .walletGrid { grid-template-columns: 1fr; }
+  .timelineHeadRow, .attributesHeadRow { display: none; }
+  .timelineRow, .attributesRow, .consentRow { grid-template-columns: 1fr; gap: var(--space-2); }
+}

@@ -1,0 +1,34 @@
+<!-- @dsCard group="Components" viewport="700x180" name="Logo / Brand" subtitle="wso2 wordmark across surfaces" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>
+  body { margin: 0; padding: 24px; background: var(--surface-card); }
+  .row { display:flex; gap: 14px; }
+  .tile { flex:1; height: 110px; border-radius: var(--radius-lg); display:flex; align-items:center; justify-content:center; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+  const { Logo } = window.WSO2DesignSystem_32d993;
+  function Demo(){
+    return (
+      <div className="row">
+        <div className="tile" style={{background:'var(--surface-card)',border:'1px solid var(--border-default)'}}><Logo size={40}/></div>
+        <div className="tile" style={{background:'var(--gray-950)'}}><Logo size={40} tone="light"/></div>
+        <div className="tile" style={{backgroundImage:'url(../../assets/gradients/g1.png)',backgroundSize:'cover'}}><Logo size={40} tone="light" accent={false}/></div>
+        <div className="tile" style={{background:'var(--orange-500)'}}><Logo size={40} tone="light" accent={false}/></div>
+      </div>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(<Demo/>);
+</script>
+</body>
+</html>
