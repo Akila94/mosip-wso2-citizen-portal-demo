@@ -37,4 +37,10 @@ repository/logs/
 # demo.sh runtime state: pid files, bridge log, IS start/stop output.
 .run/
 
+# citizen-portal-integration/: plan docs, M1 session notes, and local TLS certs.
+citizen-portal-integration/*PLAN*.md
+citizen-portal-integration/*plan*.md
+citizen-portal-integration/M1-SESSION-NOTES.md
+citizen-portal-integration/certs/
+
 CLAUDE.md
