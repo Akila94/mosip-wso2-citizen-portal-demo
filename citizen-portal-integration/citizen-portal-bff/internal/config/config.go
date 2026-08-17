@@ -21,10 +21,10 @@ type ClientConfig struct {
 	Scopes       string
 }
 
-// Config is the BFF's fully validated configuration. M1 registers only the
-// Citizen Portal app; Config.Portal is the only ClientConfig populated so
-// far — Applications A and B (DrivingLicence, RevenueLicence) are added in
-// M2 alongside their own env-var prefixes, following the same pattern.
+// Config is the BFF's fully validated configuration. M1 registered only the
+// Citizen Portal app (Config.Portal); M2 adds Application A and B —
+// DrivingLicence and RevenueLicence — as their own ClientConfig fields,
+// loaded with their own env-var prefixes, following the same pattern.
 type Config struct {
 	BFFPort      string
 	BFFPublicURL string
@@ -32,7 +32,9 @@ type Config struct {
 	ISIssuer string
 	ISCAFile string
 
-	Portal ClientConfig
+	Portal         ClientConfig
+	DrivingLicence ClientConfig
+	RevenueLicence ClientConfig
 
 	ServicesAPIURL string
 
@@ -131,6 +133,16 @@ func Load(lookup LookupFunc) (Config, error) {
 			ClientID:     l.required("PORTAL_CLIENT_ID"),
 			ClientSecret: l.required("PORTAL_CLIENT_SECRET"),
 			Scopes:       l.str("PORTAL_CLIENT_SCOPES", "openid profile email"),
+		},
+		DrivingLicence: ClientConfig{
+			ClientID:     l.required("DL_CLIENT_ID"),
+			ClientSecret: l.required("DL_CLIENT_SECRET"),
+			Scopes:       l.str("DL_CLIENT_SCOPES", "openid profile email address driving_licence.write"),
+		},
+		RevenueLicence: ClientConfig{
+			ClientID:     l.required("VRL_CLIENT_ID"),
+			ClientSecret: l.required("VRL_CLIENT_SECRET"),
+			Scopes:       l.str("VRL_CLIENT_SCOPES", "openid profile email vehicle_registry.read"),
 		},
 
 		ServicesAPIURL: l.str("SERVICES_API_URL", "http://localhost:8091"),

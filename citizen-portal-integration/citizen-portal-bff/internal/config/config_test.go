@@ -16,6 +16,10 @@ func validEnv() map[string]string {
 	return map[string]string{
 		"PORTAL_CLIENT_ID":     "portal-client-id",
 		"PORTAL_CLIENT_SECRET": "portal-client-secret",
+		"DL_CLIENT_ID":         "dl-client-id",
+		"DL_CLIENT_SECRET":     "dl-client-secret",
+		"VRL_CLIENT_ID":        "vrl-client-id",
+		"VRL_CLIENT_SECRET":    "vrl-client-secret",
 	}
 }
 
@@ -38,6 +42,18 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if cfg.Portal.Scopes != "openid profile email" {
 		t.Errorf("Portal.Scopes = %q", cfg.Portal.Scopes)
+	}
+	if cfg.DrivingLicence.ClientID != "dl-client-id" || cfg.DrivingLicence.ClientSecret != "dl-client-secret" {
+		t.Errorf("DrivingLicence client = %+v", cfg.DrivingLicence)
+	}
+	if cfg.DrivingLicence.Scopes != "openid profile email address driving_licence.write" {
+		t.Errorf("DrivingLicence.Scopes = %q", cfg.DrivingLicence.Scopes)
+	}
+	if cfg.RevenueLicence.ClientID != "vrl-client-id" || cfg.RevenueLicence.ClientSecret != "vrl-client-secret" {
+		t.Errorf("RevenueLicence client = %+v", cfg.RevenueLicence)
+	}
+	if cfg.RevenueLicence.Scopes != "openid profile email vehicle_registry.read" {
+		t.Errorf("RevenueLicence.Scopes = %q", cfg.RevenueLicence.Scopes)
 	}
 	if cfg.SessionIdleTimeout != 60*time.Minute {
 		t.Errorf("SessionIdleTimeout = %v, want 60m", cfg.SessionIdleTimeout)
@@ -69,6 +85,38 @@ func TestLoadMissingClientSecretFailsFast(t *testing.T) {
 	delete(env, "PORTAL_CLIENT_SECRET")
 	if _, err := Load(lookupFrom(env)); err == nil {
 		t.Fatal("expected Load to fail without PORTAL_CLIENT_SECRET")
+	}
+}
+
+func TestLoadMissingDLClientIDFailsFast(t *testing.T) {
+	env := validEnv()
+	delete(env, "DL_CLIENT_ID")
+	if _, err := Load(lookupFrom(env)); err == nil {
+		t.Fatal("expected Load to fail without DL_CLIENT_ID")
+	}
+}
+
+func TestLoadMissingDLClientSecretFailsFast(t *testing.T) {
+	env := validEnv()
+	delete(env, "DL_CLIENT_SECRET")
+	if _, err := Load(lookupFrom(env)); err == nil {
+		t.Fatal("expected Load to fail without DL_CLIENT_SECRET")
+	}
+}
+
+func TestLoadMissingVRLClientIDFailsFast(t *testing.T) {
+	env := validEnv()
+	delete(env, "VRL_CLIENT_ID")
+	if _, err := Load(lookupFrom(env)); err == nil {
+		t.Fatal("expected Load to fail without VRL_CLIENT_ID")
+	}
+}
+
+func TestLoadMissingVRLClientSecretFailsFast(t *testing.T) {
+	env := validEnv()
+	delete(env, "VRL_CLIENT_SECRET")
+	if _, err := Load(lookupFrom(env)); err == nil {
+		t.Fatal("expected Load to fail without VRL_CLIENT_SECRET")
 	}
 }
 
@@ -135,6 +183,8 @@ func TestLoadOverridesEverythingFromEnv(t *testing.T) {
 	env["BFF_PUBLIC_URL"] = "http://localhost:9090"
 	env["IS_ISSUER"] = "https://is.example.gov/oauth2/token"
 	env["PORTAL_CLIENT_SCOPES"] = "openid profile"
+	env["DL_CLIENT_SCOPES"] = "openid driving_licence.write"
+	env["VRL_CLIENT_SCOPES"] = "openid vehicle_registry.read"
 	env["SESSION_IDLE_TIMEOUT"] = "30m"
 	env["LOGIN_TXN_TTL"] = "2m"
 	env["SESSION_MAX_ENTRIES"] = "1000"
@@ -149,6 +199,12 @@ func TestLoadOverridesEverythingFromEnv(t *testing.T) {
 	}
 	if cfg.Portal.Scopes != "openid profile" {
 		t.Errorf("Portal.Scopes = %q", cfg.Portal.Scopes)
+	}
+	if cfg.DrivingLicence.Scopes != "openid driving_licence.write" {
+		t.Errorf("DrivingLicence.Scopes = %q", cfg.DrivingLicence.Scopes)
+	}
+	if cfg.RevenueLicence.Scopes != "openid vehicle_registry.read" {
+		t.Errorf("RevenueLicence.Scopes = %q", cfg.RevenueLicence.Scopes)
 	}
 	if cfg.SessionIdleTimeout != 30*time.Minute || cfg.LoginTxnTTL != 2*time.Minute {
 		t.Errorf("unexpected timeouts: %+v", cfg)

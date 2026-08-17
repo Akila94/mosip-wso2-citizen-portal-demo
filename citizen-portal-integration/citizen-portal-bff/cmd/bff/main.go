@@ -1,7 +1,9 @@
 // Command bff runs the citizen-portal-bff — the OIDC relying party that
-// stands between the browser and WSO2 Identity Server. M1 scope: the
-// "Citizen Portal" app only. Application A/B and the SPA dev-proxy/static
-// serving are added in later milestones (see PORTAL-INTEGRATION-PLAN.md).
+// stands between the browser and WSO2 Identity Server. M1 wired up the
+// "Citizen Portal" app only; M2 adds Application A (Driving Licence
+// Service) and Application B (Vehicle Revenue Licence) alongside it. The
+// SPA dev-proxy/static serving is added in a later milestone (see
+// PORTAL-INTEGRATION-PLAN.md).
 package main
 
 import (
@@ -67,6 +69,40 @@ func run() error {
 		LoginTxnCookieName:    "cp_txn",
 		CSRFCookieName:        "cp_csrf",
 		PostLogoutRedirectURI: cfg.BFFPublicURL + "/",
+		ClientID:              cfg.Portal.ClientID,
+		AppName:               "Citizen Portal",
+	}
+
+	dlRedirectURL := cfg.BFFPublicURL + "/bff/driving-licence/callback"
+	dlRP := oidcrp.NewRP(provider, httpClient, cfg.DrivingLicence.ClientID, cfg.DrivingLicence.ClientSecret, dlRedirectURL, cfg.DrivingLicence.Scopes)
+
+	dlApp := &httpapi.AppRoute{
+		Key:                   "driving-licence",
+		RoutePrefix:           "/bff/driving-licence",
+		ReturnToPrefix:        "/apps/driving-licence",
+		Client:                dlRP,
+		SessionCookieName:     "dl_sid",
+		LoginTxnCookieName:    "dl_txn",
+		CSRFCookieName:        "dl_csrf",
+		PostLogoutRedirectURI: cfg.BFFPublicURL + "/apps/driving-licence",
+		ClientID:              cfg.DrivingLicence.ClientID,
+		AppName:               "Driving Licence Service",
+	}
+
+	vrlRedirectURL := cfg.BFFPublicURL + "/bff/revenue-licence/callback"
+	vrlRP := oidcrp.NewRP(provider, httpClient, cfg.RevenueLicence.ClientID, cfg.RevenueLicence.ClientSecret, vrlRedirectURL, cfg.RevenueLicence.Scopes)
+
+	vrlApp := &httpapi.AppRoute{
+		Key:                   "revenue-licence",
+		RoutePrefix:           "/bff/revenue-licence",
+		ReturnToPrefix:        "/apps/revenue-licence",
+		Client:                vrlRP,
+		SessionCookieName:     "vrl_sid",
+		LoginTxnCookieName:    "vrl_txn",
+		CSRFCookieName:        "vrl_csrf",
+		PostLogoutRedirectURI: cfg.BFFPublicURL + "/apps/revenue-licence",
+		ClientID:              cfg.RevenueLicence.ClientID,
+		AppName:               "Vehicle Revenue Licence",
 	}
 
 	sessions := session.NewManager(session.Config{
@@ -77,7 +113,11 @@ func run() error {
 	defer sessions.Close()
 
 	apiServer := httpapi.NewServer(
-		map[string]*httpapi.AppRoute{"portal": portalApp},
+		map[string]*httpapi.AppRoute{
+			"portal":          portalApp,
+			"driving-licence": dlApp,
+			"revenue-licence": vrlApp,
+		},
 		sessions,
 		cfg.CookieSecure,
 		cfg.SessionIdleTimeout,

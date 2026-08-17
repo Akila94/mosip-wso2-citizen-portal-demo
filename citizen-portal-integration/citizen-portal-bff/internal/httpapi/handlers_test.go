@@ -32,6 +32,8 @@ func newTestServer(t *testing.T, client OIDCClient) (*Server, *AppRoute) {
 		LoginTxnCookieName:    "cp_txn",
 		CSRFCookieName:        "cp_csrf",
 		PostLogoutRedirectURI: "http://localhost:8090/",
+		ClientID:              "portal-client-id",
+		AppName:               "Citizen Portal",
 	}
 	mgr := session.NewManager(session.Config{
 		MaxSessions: 100,
@@ -300,6 +302,9 @@ func TestHandleSessionReturnsProjectionAfterLogin(t *testing.T) {
 	}
 	if !body.Authenticated || body.User.Sub != "sub-42" || body.Sid != "sid-42" {
 		t.Errorf("unexpected session view: %+v", body)
+	}
+	if body.ClientID != "portal-client-id" || body.AppName != "Citizen Portal" {
+		t.Errorf("ClientID/AppName = %q/%q, want portal-client-id/Citizen Portal", body.ClientID, body.AppName)
 	}
 	if body.AssuranceLevel != string(session.AssuranceSubstantial) {
 		t.Errorf("AssuranceLevel = %q, want substantial", body.AssuranceLevel)

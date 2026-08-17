@@ -32,6 +32,13 @@ type AppRoute struct {
 	CSRFCookieName     string
 
 	PostLogoutRedirectURI string
+
+	// ClientID is this app's registered OIDC client ID — surfaced to the SPA
+	// so it can show "released to <clientId>" without ever seeing a token.
+	ClientID string
+	// AppName is this app's human-readable name as registered in WSO2 IS
+	// ("Citizen Portal", "Driving Licence Service", "Vehicle Revenue Licence").
+	AppName string
 }
 
 // Server holds everything the HTTP handlers need: the registered apps

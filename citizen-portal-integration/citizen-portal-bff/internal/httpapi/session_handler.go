@@ -14,7 +14,8 @@ import (
 // deliberately never copied into this struct.
 type sessionView struct {
 	Authenticated  bool     `json:"authenticated"`
-	ClientID       string   `json:"-"` // reserved: populated once multi-app client metadata exists (M2)
+	ClientID       string   `json:"clientId,omitempty"`
+	AppName        string   `json:"appName,omitempty"`
 	AppKey         string   `json:"appKey"`
 	User           userView `json:"user"`
 	AssuranceLevel string   `json:"assuranceLevel"`
@@ -39,6 +40,8 @@ type userView struct {
 func projectSession(app *AppRoute, sess session.AuthSession) sessionView {
 	return sessionView{
 		Authenticated: true,
+		ClientID:      app.ClientID,
+		AppName:       app.AppName,
 		AppKey:        app.Key,
 		User: userView{
 			Sub:         sess.User.Sub,

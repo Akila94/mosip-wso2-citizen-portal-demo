@@ -5,48 +5,59 @@ lives in this directory — it does not touch `esignet-bridge/` (the informal va
 alone) and builds on top of `setup-without-bridge/` (the production-correct federation the plan
 joins to the demo UI).
 
-**Status: M1 in progress.** M1 is a walking skeleton — one WSO2 IS application ("Citizen
-Portal"), the BFF's full OIDC round trip (login → IS → MOSIP eSignet or local
-Username & Password → callback → session), and RP-initiated + back-channel logout. No SPA
-changes yet; `GET /bff/portal/session` returns the real ID-token claims as JSON so the flow can
-be verified end to end before the React app is touched. See `PORTAL-INTEGRATION-PLAN.md`'s
-"Phasing" section for M2–M6.
+**Status: M1 complete and live-verified (see `M1-SESSION-NOTES.md`); M2 code-complete, pending
+live verification.** M1 built a walking skeleton — one WSO2 IS application ("Citizen Portal"),
+the BFF's full OIDC round trip (login → IS → MOSIP eSignet or local Username & Password →
+callback → session), and RP-initiated + back-channel logout — deliberately built generically
+(`Server.Apps map[string]*AppRoute`, `Manager.DestroyBySid` spans every registered app) even
+though only one app was wired up. M2 registers the other two apps ("Driving Licence Service",
+"Vehicle Revenue Licence") into that same generic machinery — no changes to the OIDC round trip,
+session store, or back-channel logout were needed. No SPA changes yet; `GET /bff/{app}/session`
+returns the real ID-token claims as JSON so SSO and single logout can be verified end to end
+before the React app is touched (M4/M5). See `PORTAL-INTEGRATION-PLAN.md`'s "Phasing" section
+for M3–M6, and `MANUAL-STEPS.md` for the Console registration this milestone needs.
 
 ## Layout
 
 ```
 citizen-portal-integration/
-├── MANUAL-STEPS.md          Console work this code cannot do (register the app, add MOSIP
-│                            eSignet + Username & Password to Login Flow Step 1)
+├── MANUAL-STEPS.md          Console work this code cannot do: register all three applications
+│                            (§1–§4), add MOSIP eSignet + Username & Password to each one's
+│                            Login Flow Step 1, then the M1 and M2 live-verification checklists
 ├── certs/                   IS's exported self-signed cert, for the BFF's pinned trust store
-└── citizen-portal-bff/      the Go BFF (M1: portal app only)
-    ├── cmd/bff/             main.go — wiring, graceful shutdown
+└── citizen-portal-bff/      the Go BFF — three registered apps as of M2
+    ├── cmd/bff/             main.go — wiring all three AppRoutes, graceful shutdown
     └── internal/
-        ├── config/          env-only configuration, validated at boot
+        ├── config/          env-only configuration for all three apps' OIDC clients,
+        │                    validated at boot
         ├── security/        log-forging prevention, returnTo/open-redirect guard, PKCE,
         │                    CSRF, security headers — no dependency on the other packages
         ├── session/         TTL-bounded stores for login transactions and authenticated
-        │                    sessions; assurance-level derivation from `amr`
+        │                    sessions, shared across every app so `DestroyBySid` can end all
+        │                    three apps' sessions from one IdP logout; assurance-level
+        │                    derivation from `amr`
         ├── oidcrp/          OIDC discovery, authorization-code + PKCE round trip, ID-token
-        │                    and back-channel logout-token verification
-        └── httpapi/         chi routes: login/callback/session/logout/backchannel-logout
+        │                    and back-channel logout-token verification — one RP instance per
+        │                    app, same discovered provider
+        └── httpapi/         chi routes: login/callback/session/logout/backchannel-logout,
+                             registered once per app (`Server.Apps`)
 ```
 
-## Running M1
+## Running M1 + M2
 
 ```bash
 # 1. Bring up eSignet + WSO2 IS (already done for this session):
 cd ../setup-without-bridge && ./demo.sh status   # confirm both are up, preflight green
 
-# 2. Register the Citizen Portal application — see MANUAL-STEPS.md.
+# 2. Register all three applications — see MANUAL-STEPS.md §1-§4.
 
 # 3. Configure and run the BFF
 cd citizen-portal-bff
 cp .env.example .env && chmod 600 .env
-# fill in PORTAL_CLIENT_ID / PORTAL_CLIENT_SECRET from step 2, then:
+# fill in PORTAL_CLIENT_ID/_SECRET, DL_CLIENT_ID/_SECRET, VRL_CLIENT_ID/_SECRET, then:
 go run ./cmd/bff
 
-# 4. Try it
+# 4. Try it — MANUAL-STEPS.md §7 has the full M1 + M2 verification checklist
 open http://localhost:8090/bff/portal/login?returnTo=/
 ```
 
@@ -67,11 +78,13 @@ required; `httpapi` exercises the HTTP layer (cookies, CSRF, returnTo validation
 rejection, back-channel session teardown) against a fake `OIDCClient`, so it is independent of
 both `oidcrp`'s and IS's specifics.
 
-## What M1 deliberately does not include yet
+## What M1 + M2 deliberately do not include yet
 
-- Applications A (Driving Licence) and B (Vehicle Revenue Licence) — M2.
+- `gov-services-api` (the mock resource server with per-audience JWT checks) and the custom
+  `driving_licence.write`/`vehicle_registry.read` OAuth scopes it needs registered — M3. Until
+  then, whether IS accepts or silently drops those two scope names on Applications A/B's
+  authorization requests is **unverified** — see `MANUAL-STEPS.md` §5.
 - The SPA dev-proxy / static-file serving `DEV_PROXY_TARGET`/`STATIC_DIR` reserve — M4/M5, once
   the React app is being migrated onto this BFF.
-- `gov-services-api` (the mock resource server with per-audience JWT checks) — M3.
-- Step-up authentication (`prompt=login`) — added alongside Applications A/B once there is a
-  concrete step-up scenario (the driving-licence submission flow) to drive it.
+- Step-up authentication (`prompt=login`) — added once there is a concrete step-up scenario
+  (the driving-licence submission flow) to drive it.
