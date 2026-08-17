@@ -115,18 +115,25 @@ Repeat §3 exactly, changing only:
 
 Note this application's **Client ID** and **Client Secret** as well.
 
-## 5. Custom scopes — not required for M2, needed before M3
+## 5. No custom scopes needed — audience alone gates each app's router
 
-`PORTAL-INTEGRATION-PLAN.md` gives Application A the scope `driving_licence.write` and
-Application B `vehicle_registry.read`, so `gov-services-api` (M3) can reject one app's token on
-the other's router. `citizen-portal-bff/.env.example`'s `DL_CLIENT_SCOPES` /
-`VRL_CLIENT_SCOPES` defaults already include them, on the assumption that IS drops an
-**unrecognized** scope from a request rather than rejecting the whole authorization — this has
-**not been verified live** and must be confirmed during M2's own live test below. If login
-fails or the scope is silently absent from the token, the workaround until M3 defines these as
-real OAuth API-resource scopes (**API Resources** → **New API Resource**, then bind them on
-each application's **API Authorization** tab) is to drop the custom scope from that app's
-`_CLIENT_SCOPES` value in `.env` and retry.
+An earlier draft of this plan gave Application A the scope `driving_licence.write` and
+Application B `vehicle_registry.read`, so `gov-services-api` (M3) could reject one app's token on
+the other's router. **That approach was tried live, found to add real friction with no benefit,
+and removed** — `gov-services-api`'s `/driving-licence/*` and `/vehicle-registry/*` routers now
+require only that the token's audience match that app's own client ID, exactly like `/portal/*`
+already did. The reasoning: a citizen only ever holds an access token whose audience is the
+specific app they authenticated to, so the audience check alone already proves "this citizen has
+a validly-authenticated session with this app" — there is no scenario in this project where two
+different citizens should get different access to the *same* app's endpoints, so a scope on top
+of the audience check was solving a problem this demo doesn't have. `M3-SESSION-NOTES.md` has
+the full history, including what the scope-based approach actually required (a WSO2 IS Console
+"Authorization Policy" setting that defaults to a Role-Based Access Control policy no citizen
+would ever satisfy) and why it was abandoned rather than worked around further.
+
+**Nothing to do here** — no API Resource, no Authorize-API binding, no Console work at all for
+this. `citizen-portal-bff/.env.example`'s `DL_CLIENT_SCOPES`/`VRL_CLIENT_SCOPES` defaults no
+longer include the removed custom scopes.
 
 ## 6. Fill in `.env`
 
@@ -180,6 +187,108 @@ is M4/M5.
    back-channel-logout call reporting **3** sessions destroyed by a single `sid`.
 5. Re-enter any app after that — it must re-prompt (no leftover session).
 
+## 8. M3 — run `gov-services-api` and prove audience/scope separation
+
+M3 adds `gov-services-api`, a resource server the BFF calls on the citizen's behalf using the
+OAuth2 access token captured at login. It never talks to a browser and holds no secrets — it
+only validates the JWT access token it's given (signature via IS's JWKS, `iss`, `exp`, then a
+**per-router required audience and scope**), so App A's token is genuinely rejected by App B's
+router and vice versa.
+
+### 8.1 Configure and run it
+
+```bash
+cd citizen-portal-integration/gov-services-api
+cp .env.example .env && chmod 600 .env
+```
+
+Fill in the **same three client IDs** already sitting in `citizen-portal-bff/.env` — these are
+not secrets, they're the expected `aud` value for each router:
+
+```
+PORTAL_CLIENT_ID=<same value as citizen-portal-bff/.env>
+DL_CLIENT_ID=<same value as citizen-portal-bff/.env>
+VRL_CLIENT_ID=<same value as citizen-portal-bff/.env>
+```
+
+Then run it alongside the BFF (a fourth terminal, on top of the three from §7 — eSignet/IS,
+`setup-without-bridge`, and the BFF itself):
+
+```bash
+./run-govapi.sh
+```
+
+`GET http://localhost:8091/portal/catalogue` with no `Authorization` header should return `400`
+(missing bearer token) — that alone confirms the service is up and its middleware is active,
+with no live IS round trip needed yet.
+
+### 8.2 Prove the audience separation with curl
+
+This needs one real access token, captured by hand — the BFF never exposes a citizen's access
+token to anything (by design, per `PORTAL-INTEGRATION-PLAN.md`'s "tokens must never reach the
+browser"), so the only way to hold one yourself is to run the same authorization-code + PKCE
+exchange the BFF runs, substituting yourself for it. This mirrors
+`setup-without-bridge/MANUAL-STEPS.md` §5's own hand-built-PKCE-URL pattern.
+
+**Stop the running BFF first** (`Ctrl-C` the `./run-bff.sh` from §7) — you're about to send a
+browser to `driving-licence`'s own registered callback URL, and if the BFF is still running it
+will intercept and consume the authorization code itself before you can copy it.
+
+```bash
+CLIENT_ID='<Driving Licence Service Client ID, from MANUAL-STEPS.md §3.7>'
+CLIENT_SECRET='<its Client Secret, from the same step>'
+REDIRECT_URI='http://localhost:8090/bff/driving-licence/callback'   # already registered, §3.3
+
+VERIFIER=$(openssl rand -base64 96 | tr -d '\n=' | tr '/+' '_-' | cut -c1-64)
+CHALLENGE=$(printf %s "$VERIFIER" | openssl dgst -binary -sha256 | openssl base64 | tr -d '\n=' | tr '/+' '_-')
+echo "verifier = $VERIFIER"
+echo "https://localhost:9443/oauth2/authorize?response_type=code&client_id=$CLIENT_ID&redirect_uri=$REDIRECT_URI&scope=openid%20profile%20email%20address&code_challenge=$CHALLENGE&code_challenge_method=S256"
+```
+
+Open that URL in a browser (with the BFF stopped): sign in via MOSIP eSignet (or Username &
+Password) same as always. With nothing listening on `:8090`, the browser lands on a connection
+error — expected, per §7's own note about `/` 404s in M1 — but the address bar now holds
+`...callback?code=...&state=...`. Copy the `code` value, then redeem it yourself:
+
+```bash
+curl -sk -X POST https://localhost:9443/oauth2/token \
+  -d grant_type=authorization_code \
+  -d client_id="$CLIENT_ID" \
+  -d client_secret="$CLIENT_SECRET" \
+  -d redirect_uri="$REDIRECT_URI" \
+  -d code='<code-from-the-url>' \
+  -d code_verifier="$VERIFIER" | python3 -m json.tool
+```
+
+Take the response's `access_token` and prove both directions:
+
+```bash
+TOKEN='<access_token from above>'
+
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8091/driving-licence/config          # expect 200 — this is Application A's own router
+
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8091/vehicle-registry/vehicles        # expect 403 — Application A's token, Application B's router
+```
+
+That `200` then `403` pair — the same token accepted by its own router and rejected by the
+other's — is M3's whole point (`PORTAL-INTEGRATION-PLAN.md`'s M3 row: "curl proves App A's token
+is accepted by `/driving-licence/*` and rejected by `/vehicle-registry/*`").
+
+Restart the BFF (`./run-bff.sh`) once you're done — it's needed again for anything else on this
+page.
+
+### 8.3 What's still unverified after this
+
+- The full BFF-fronted path (`GET /bff/driving-licence/api/config` through the running BFF,
+  using the session cookie rather than a hand-held token) — §8.2 deliberately tests
+  `gov-services-api` directly to isolate the audience/scope claim, but the BFF's own
+  `/bff/{app}/api/...` routes calling through to it have not yet been exercised against a live
+  stack end to end. Once the BFF is running again, `curl -b <session cookie jar>
+  http://localhost:8090/bff/driving-licence/api/config` (after a normal browser login) is the
+  equivalent check for the BFF-fronted path.
+
 ---
 
 ## When you have to redo this page
@@ -190,3 +299,5 @@ is M4/M5.
 | Regenerated the Citizen Portal / Driving Licence Service / Vehicle Revenue Licence application's client secret in the Console | The matching `.env` secret (`PORTAL_CLIENT_SECRET` / `DL_CLIENT_SECRET` / `VRL_CLIENT_SECRET`) no longer matches | Update `.env` with the new secret — this is the same trap `esignet-bridge/.env`/`BRIDGE_API_KEY` has, except IS issues the secret so it cannot be re-derived; you must copy the new value from the Console |
 | Deleted the "Citizen Portal" application | Nothing else — it is only referenced by `.env`'s `PORTAL_CLIENT_ID`/`_SECRET` | Repeat §1–§2 |
 | Deleted the "Driving Licence Service" or "Vehicle Revenue Licence" application | Nothing else — each is only referenced by its own `.env` pair | Repeat §3 or §4 |
+| Regenerated any of the three applications' client secret | `gov-services-api/.env` is unaffected (it never holds a secret) but `citizen-portal-bff/.env`'s matching `_SECRET` no longer matches | Same fix as the row above |
+| Deleted or recreated any of the three applications | `gov-services-api/.env`'s matching `_CLIENT_ID` (it uses the same three IDs as the expected `aud` per router) | Update `gov-services-api/.env` with the new client ID alongside updating `citizen-portal-bff/.env` |

@@ -137,12 +137,12 @@ func Load(lookup LookupFunc) (Config, error) {
 		DrivingLicence: ClientConfig{
 			ClientID:     l.required("DL_CLIENT_ID"),
 			ClientSecret: l.required("DL_CLIENT_SECRET"),
-			Scopes:       l.str("DL_CLIENT_SCOPES", "openid profile email address driving_licence.write"),
+			Scopes:       l.str("DL_CLIENT_SCOPES", "openid profile email address"),
 		},
 		RevenueLicence: ClientConfig{
 			ClientID:     l.required("VRL_CLIENT_ID"),
 			ClientSecret: l.required("VRL_CLIENT_SECRET"),
-			Scopes:       l.str("VRL_CLIENT_SCOPES", "openid profile email vehicle_registry.read"),
+			Scopes:       l.str("VRL_CLIENT_SCOPES", "openid profile email"),
 		},
 
 		ServicesAPIURL: l.str("SERVICES_API_URL", "http://localhost:8091"),

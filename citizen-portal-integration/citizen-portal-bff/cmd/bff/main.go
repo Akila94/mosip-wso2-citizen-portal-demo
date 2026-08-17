@@ -1,8 +1,10 @@
 // Command bff runs the citizen-portal-bff — the OIDC relying party that
 // stands between the browser and WSO2 Identity Server. M1 wired up the
-// "Citizen Portal" app only; M2 adds Application A (Driving Licence
-// Service) and Application B (Vehicle Revenue Licence) alongside it. The
-// SPA dev-proxy/static serving is added in a later milestone (see
+// "Citizen Portal" app only; M2 added Application A (Driving Licence
+// Service) and Application B (Vehicle Revenue Licence) alongside it; M3
+// adds the upstream.Client that calls gov-services-api on the citizen's
+// behalf, using the OAuth2 access token captured at login. The SPA
+// dev-proxy/static serving is added in a later milestone (see
 // PORTAL-INTEGRATION-PLAN.md).
 package main
 
@@ -20,6 +22,7 @@ import (
 	"github.com/akila94/mosip-wso2-citizen-portal-demo/citizen-portal-bff/internal/httpapi"
 	"github.com/akila94/mosip-wso2-citizen-portal-demo/citizen-portal-bff/internal/oidcrp"
 	"github.com/akila94/mosip-wso2-citizen-portal-demo/citizen-portal-bff/internal/session"
+	"github.com/akila94/mosip-wso2-citizen-portal-demo/citizen-portal-bff/internal/upstream"
 )
 
 const (
@@ -28,6 +31,12 @@ const (
 	idleTimeout       = 60 * time.Second
 	readHeaderTimeout = 5 * time.Second
 	shutdownTimeout   = 10 * time.Second
+
+	// upstreamClientTimeout matches oidcrp.NewHTTPClient's timeout for the
+	// IS client, for consistency across this process's two outbound HTTP
+	// clients. gov-services-api runs on plain HTTP, so no CA pinning is
+	// needed here — only IS's self-signed certificate requires that.
+	upstreamClientTimeout = 15 * time.Second
 )
 
 func main() {
@@ -112,6 +121,8 @@ func run() error {
 	})
 	defer sessions.Close()
 
+	upstreamClient := upstream.New(cfg.ServicesAPIURL, &http.Client{Timeout: upstreamClientTimeout})
+
 	apiServer := httpapi.NewServer(
 		map[string]*httpapi.AppRoute{
 			"portal":          portalApp,
@@ -122,6 +133,7 @@ func run() error {
 		cfg.CookieSecure,
 		cfg.SessionIdleTimeout,
 		logger,
+		upstreamClient,
 	)
 
 	httpServer := &http.Server{

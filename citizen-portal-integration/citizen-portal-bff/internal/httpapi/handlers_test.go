@@ -42,7 +42,7 @@ func newTestServer(t *testing.T, client OIDCClient) (*Server, *AppRoute) {
 	})
 	t.Cleanup(mgr.Close)
 
-	s := NewServer(map[string]*AppRoute{"portal": app}, mgr, false, time.Minute, discardLogger())
+	s := NewServer(map[string]*AppRoute{"portal": app}, mgr, false, time.Minute, discardLogger(), &fakeUpstream{})
 	return s, app
 }
 
@@ -164,6 +164,20 @@ func TestHandleCallbackHappyPathSetsSessionCookie(t *testing.T) {
 	}
 	if client.lastVerifyRawIDToken != "raw-id-token" {
 		t.Errorf("VerifyIDToken rawIDToken = %q", client.lastVerifyRawIDToken)
+	}
+
+	if sessionCookie == nil {
+		t.Fatal("expected a session cookie")
+	}
+	sess, ok := s.Sessions.GetSession(sessionCookie.Value)
+	if !ok {
+		t.Fatal("expected the created session to be retrievable")
+	}
+	if sess.AccessToken != "at-1" {
+		t.Errorf("AuthSession.AccessToken = %q, want %q", sess.AccessToken, "at-1")
+	}
+	if !sess.AccessTokenExpiresAt.Equal(testAccessTokenExpiry) {
+		t.Errorf("AuthSession.AccessTokenExpiresAt = %v, want %v", sess.AccessTokenExpiresAt, testAccessTokenExpiry)
 	}
 }
 

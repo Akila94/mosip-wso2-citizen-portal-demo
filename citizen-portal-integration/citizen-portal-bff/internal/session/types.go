@@ -42,4 +42,18 @@ type AuthSession struct {
 	AuthTime   time.Time
 	ExpiresAt  time.Time
 	RawIDToken string
+	// AccessToken is the OAuth2 access token issued alongside the ID token.
+	// Like RawIDToken, it is kept solely for server-to-server use — calling
+	// gov-services-api on the citizen's behalf — and is never serialized to
+	// the browser; the HTTP layer's sessionView has no field for it.
+	AccessToken string
+	// AccessTokenExpiresAt is the access token's own expiry (which can differ
+	// from the ID token's), so a caller can tell a stale token from a live
+	// one before spending a round trip to gov-services-api discovering it was
+	// rejected. There is deliberately no refresh-token handling yet — if the
+	// access token expires before the BFF's own session idle timeout, an
+	// upstream call simply fails with whatever gov-services-api returns for
+	// an expired token, and that failure surfaces to the SPA as a normal
+	// upstream error. This is a known, documented gap, not an oversight.
+	AccessTokenExpiresAt time.Time
 }

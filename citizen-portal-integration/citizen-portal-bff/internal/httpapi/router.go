@@ -27,6 +27,30 @@ func (s *Server) Router() http.Handler {
 		r.Post(prefix+"/backchannel-logout", s.handleBackchannelLogout(app))
 	}
 
+	// Each app's /api/* data routes call gov-services-api on the citizen's
+	// behalf via s.Upstream. These are genuinely different route sets per
+	// app (not a generic loop), so they are registered explicitly by app
+	// key — matching this project's "no generic proxy, named handlers"
+	// philosophy applied one level up, at the routing layer too.
+	if app, ok := s.Apps["portal"]; ok {
+		r.Route(app.RoutePrefix+"/api", func(pr chi.Router) {
+			pr.Use(s.requireSession(app))
+			s.mountPortalDataRoutes(pr)
+		})
+	}
+	if app, ok := s.Apps["driving-licence"]; ok {
+		r.Route(app.RoutePrefix+"/api", func(dr chi.Router) {
+			dr.Use(s.requireSession(app))
+			s.mountDrivingLicenceDataRoutes(dr, app)
+		})
+	}
+	if app, ok := s.Apps["revenue-licence"]; ok {
+		r.Route(app.RoutePrefix+"/api", func(vr chi.Router) {
+			vr.Use(s.requireSession(app))
+			s.mountRevenueLicenceDataRoutes(vr, app)
+		})
+	}
+
 	return r
 }
 

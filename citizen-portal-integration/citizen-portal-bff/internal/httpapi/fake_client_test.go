@@ -4,11 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/akila94/mosip-wso2-citizen-portal-demo/citizen-portal-bff/internal/oidcrp"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
 )
+
+// testAccessTokenExpiry is the fixed expiry fakeClient.Exchange's default
+// token carries, so tests can assert AuthSession.AccessTokenExpiresAt was
+// actually populated from the token rather than left zero.
+var testAccessTokenExpiry = time.Date(2026, time.August, 17, 12, 0, 0, 0, time.UTC)
 
 // fakeClient is a test double for OIDCClient — no network, no signature
 // verification, so handler tests exercise the HTTP-layer logic (cookies,
@@ -50,7 +56,7 @@ func (f *fakeClient) Exchange(ctx context.Context, code, codeVerifier string) (*
 	if f.exchangeToken != nil {
 		return f.exchangeToken, nil
 	}
-	return (&oauth2.Token{AccessToken: "at-1"}).WithExtra(map[string]any{"id_token": "raw-id-token"}), nil
+	return (&oauth2.Token{AccessToken: "at-1", Expiry: testAccessTokenExpiry}).WithExtra(map[string]any{"id_token": "raw-id-token"}), nil
 }
 
 func (f *fakeClient) VerifyIDToken(ctx context.Context, rawIDToken, expectedNonce string) (*oidcrp.Claims, error) {

@@ -79,12 +79,14 @@ func (s *Server) handleCallback(app *AppRoute) http.HandlerFunc {
 				Birthdate:   claims.Birthdate,
 				Picture:     claims.Picture,
 			},
-			Sid:        claims.Sid,
-			Acr:        claims.Acr,
-			Amr:        claims.Amr,
-			AuthTime:   claims.AuthTime,
-			ExpiresAt:  claims.Expiry,
-			RawIDToken: rawIDToken,
+			Sid:                  claims.Sid,
+			Acr:                  claims.Acr,
+			Amr:                  claims.Amr,
+			AuthTime:             claims.AuthTime,
+			ExpiresAt:            claims.Expiry,
+			RawIDToken:           rawIDToken,
+			AccessToken:          token.AccessToken,
+			AccessTokenExpiresAt: token.Expiry,
 		}
 
 		sessionKey, err := s.Sessions.CreateSession(sess)

@@ -51,6 +51,12 @@ type Server struct {
 	SessionIdleTimeout time.Duration
 	Logger             *slog.Logger
 
+	// Upstream calls gov-services-api on the citizen's behalf using the
+	// access token captured in their session. See
+	// internal/httpapi/portal_data.go, drivinglicence_data.go and
+	// revenuelicence_data.go for the named handlers that use it.
+	Upstream UpstreamClient
+
 	// replaySeen remembers back-channel logout token jtis already
 	// processed, so a replayed token is rejected rather than re-destroying
 	// (harmlessly, but noisily) the same sessions.
@@ -59,13 +65,14 @@ type Server struct {
 
 // NewServer constructs a Server ready for RegisterRoutes, initializing the
 // internal replay-detection store.
-func NewServer(apps map[string]*AppRoute, sessions *session.Manager, cookieSecure bool, sessionIdleTimeout time.Duration, logger *slog.Logger) *Server {
+func NewServer(apps map[string]*AppRoute, sessions *session.Manager, cookieSecure bool, sessionIdleTimeout time.Duration, logger *slog.Logger, upstreamClient UpstreamClient) *Server {
 	return &Server{
 		Apps:               apps,
 		Sessions:           sessions,
 		CookieSecure:       cookieSecure,
 		SessionIdleTimeout: sessionIdleTimeout,
 		Logger:             logger,
+		Upstream:           upstreamClient,
 		replaySeen:         session.NewStore[struct{}](5000),
 	}
 }
