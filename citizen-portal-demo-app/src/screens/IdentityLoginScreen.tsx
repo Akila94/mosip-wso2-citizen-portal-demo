@@ -69,19 +69,23 @@ export function IdentityLoginScreen({ serviceId, onLocalSignIn, onFederatedSelec
             data-lpignore="true"
             data-1p-ignore="true"
           />
-          <Input
-            label="Password"
-            type={showPassword ? 'text' : 'password'}
-            placeholder="••••••••"
-            value={password}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-            autoComplete="current-password"
-            hint={
-              <button type="button" onClick={() => setShowPassword((v) => !v)} style={{ background: 'none', border: 'none', padding: 0, font: '600 11px var(--font-mono)', color: 'var(--text-link)', cursor: 'pointer' }}>
-                {showPassword ? 'hide' : 'show'}
-              </button>
-            }
-          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+            <Input
+              label="Password"
+              type={showPassword ? 'text' : 'password'}
+              placeholder="••••••••"
+              value={password}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              style={{ alignSelf: 'flex-end', background: 'none', border: 'none', padding: 0, font: '600 11px var(--font-mono)', color: 'var(--text-link)', cursor: 'pointer' }}
+            >
+              {showPassword ? 'hide' : 'show'}
+            </button>
+          </div>
           {formError && <Alert tone="danger">{formError}</Alert>}
           <Button type="submit" fullWidth disabled={submitting}>{submitting ? 'Signing in…' : 'Sign in'}</Button>
           <div style={{ display: 'flex', justifyContent: 'space-between', font: '600 12px var(--font-sans)' }}>

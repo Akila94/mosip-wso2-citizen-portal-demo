@@ -7,7 +7,9 @@ joins to the demo UI).
 
 **Status: M1 complete and live-verified (see `M1-SESSION-NOTES.md`); M2 code-complete, pending
 live verification; M3 code-complete and independently re-verified, pending live verification (see
-`M3-SESSION-NOTES.md`).** M1 built a walking skeleton — one WSO2 IS application ("Citizen
+`M3-SESSION-NOTES.md`); M4 code-complete — `citizen-portal-demo-app/` now has real routes instead
+of a state switch, `npm run build` passes, mock services and auth behaviour unchanged (see
+`M4-SESSION-NOTES.md`).** M1 built a walking skeleton — one WSO2 IS application ("Citizen
 Portal"), the BFF's full OIDC round trip (login → IS → MOSIP eSignet or local Username & Password
 → callback → session), and RP-initiated + back-channel logout — deliberately built generically
 (`Server.Apps map[string]*AppRoute`, `Manager.DestroyBySid` spans every registered app) even
