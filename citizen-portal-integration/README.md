@@ -5,12 +5,20 @@ lives in this directory — it does not touch `esignet-bridge/` (the informal va
 alone) and builds on top of `setup-without-bridge/` (the production-correct federation the plan
 joins to the demo UI).
 
+**New to this repo? Start with [`GETTING-STARTED.md`](GETTING-STARTED.md)** — a
+fresh-clone-to-running-demo walkthrough that sequences everything below (and
+`setup-without-bridge/`'s own setup) into one path. Everything past this point is reference
+material for once that's running.
+
 **Status: M1 complete and live-verified (see `M1-SESSION-NOTES.md`); M2 code-complete, pending
 live verification; M3 code-complete and independently re-verified, pending live verification (see
 `M3-SESSION-NOTES.md`); M4 code-complete — `citizen-portal-demo-app/` now has real routes instead
-of a state switch (see `M4-SESSION-NOTES.md`); M5 code-complete — the SPA now runs on the real
-stack, with every automated gate green but _nothing yet exercised in a browser_ (see
-`M5-SESSION-NOTES.md`, whose "Still not proven" section is the honest risk list).** M1 built a
+of a state switch (see `M4-SESSION-NOTES.md`); M5 code-complete, and live-verified against the
+running stack — a real 401-vs-401 bug (an expired session confused with a token
+`gov-services-api` rejected for an unrelated reason) was found and fixed in that pass; M6
+code-complete — `portal-demo.sh` (below) replaces the four hand-run terminals with one
+orchestration script, and its `preflight` subcommand has been run against the live stack with
+`failed=0` (see `M6-SESSION-NOTES.md`).** M1 built a
 walking skeleton — one WSO2 IS application ("Citizen
 Portal"), the BFF's full OIDC round trip (login → IS → MOSIP eSignet or local Username & Password
 → callback → session), and RP-initiated + back-channel logout — deliberately built generically
@@ -24,9 +32,13 @@ the BFF's `internal/upstream` typed client and `/bff/{app}/api/...` data routes 
 using the OAuth2 access token now captured at login. M4 migrated the React app onto `react-router`
 with its mock services untouched — a large mechanical diff kept separate from a behavioural one.
 M5 joined the two halves: the BFF now serves the SPA (so it is the browser's only origin), and the
-SPA's `AuthContext` and every `*Service.ts` call the real stack. See
-`PORTAL-INTEGRATION-PLAN.md`'s "Phasing" section for M6, and `MANUAL-STEPS.md` for the Console
-registration and live-verification steps each milestone needs.
+SPA's `AuthContext` and every `*Service.ts` call the real stack. M6 adds `portal-demo.sh` (setup,
+build, start, stop, restart, status, preflight, logs, clean), and closes out repo hygiene: the
+`package-lock.json` `.gitignore` rule is anchored to `esignet-bridge/` only, so
+`citizen-portal-demo-app/package-lock.json` is now committable, and `bin/` (this script's Go
+build output) is gitignored. See `M6-SESSION-NOTES.md` for what was verified live and what
+remains a documented gap, and `MANUAL-STEPS.md` for the Console registration steps every
+milestone needs.
 
 ## How the SPA is served (M5 onwards)
 
@@ -49,6 +61,10 @@ citizen-portal-integration/
 ├── MANUAL-STEPS.md          Console work this code cannot do: register all three applications
 │                            (§1–§4), add MOSIP eSignet + Username & Password to each one's
 │                            Login Flow Step 1, then the M1/M2/M3 live-verification checklists
+├── portal-demo.sh           M6 orchestration: setup/build/start/stop/restart/status/preflight/
+│                            logs/clean for citizen-portal-bff + gov-services-api. Never starts
+│                            WSO2 IS or eSignet — checks they're up and points at
+│                            setup-without-bridge/demo.sh if not
 ├── certs/                   IS's exported self-signed cert, for the BFF's pinned trust store
 ├── citizen-portal-bff/      the Go BFF — three registered apps, data routes calling
 │                            gov-services-api (M3), and the browser's only origin (M5)
@@ -100,42 +116,54 @@ citizen-portal-integration/
 
 ## Running it
 
+**`portal-demo.sh` (M6) is the orchestration entry point.** It never starts WSO2 IS or eSignet
+itself — that stays `setup-without-bridge/demo.sh`'s job — it only checks they are up and points
+there if not.
+
 ```bash
-# 1. Bring up eSignet + WSO2 IS:
+# 1. Bring up eSignet + WSO2 IS (unchanged):
 cd ../setup-without-bridge && ./demo.sh status   # confirm both are up, preflight green
 
-# 2. Register all three applications — see MANUAL-STEPS.md §1-§4.
+# 2. Register all three applications — see MANUAL-STEPS.md §1-§4, fill in both .env files.
+cd ../citizen-portal-integration
+./portal-demo.sh setup      # creates both .env files from .env.example; checks the six
+                             # client credentials and the IS cert are in place
 
-# 3. Configure and run gov-services-api
-cd gov-services-api
-cp .env.example .env && chmod 600 .env
-# fill in PORTAL_CLIENT_ID, DL_CLIENT_ID, VRL_CLIENT_ID (same values as the BFF's .env below —
-# these are not secrets), then:
-./run-govapi.sh
+# 3. Build both Go services and the SPA (needs Node >= 18 — `nvm use 22` if the check fails)
+./portal-demo.sh build
 
-# 4. Build the SPA (static mode), or run `npm run dev` alongside if using DEV_PROXY_TARGET
-cd ../../citizen-portal-demo-app && npm install && npm run build
+# 4. Start gov-services-api then citizen-portal-bff
+./portal-demo.sh start
 
-# 5. Configure and run the BFF
-cd ../citizen-portal-integration/citizen-portal-bff
-cp .env.example .env && chmod 600 .env
-# fill in PORTAL_CLIENT_ID/_SECRET, DL_CLIENT_ID/_SECRET, VRL_CLIENT_ID/_SECRET, then:
-./run-bff.sh
-
-# 6. Open the portal — the BFF serves it, so this is the only URL that works
+# 5. Open the portal — the BFF serves it, so this is the only URL that works
 open http://localhost:8090
+
+# Later: ./portal-demo.sh status | preflight | logs [bff|govapi] | stop | restart | clean [--all]
 ```
 
+`run-bff.sh` and `run-govapi.sh` still work directly (via `go run`, no build step) for iterating on
+one service in isolation; `portal-demo.sh start` runs built binaries from `bin/` instead, so both
+services can be stopped and health-checked by PID rather than by a foreground terminal.
+
 `MANUAL-STEPS.md` §7 (M1+M2) and §8 (M3) have the `curl`-level verification checklists;
-`PORTAL-INTEGRATION-PLAN.md`'s "Manual, end to end" section has the full demo walk-through.
+`./portal-demo.sh preflight` automates the no-browser subset of them (run clean — `failed=0` —
+against the live stack; see `M6-SESSION-NOTES.md`); `PORTAL-INTEGRATION-PLAN.md`'s "Manual, end
+to end" section has the full demo walk-through, which still needs a browser.
 
 ## Testing
 
 ```bash
-cd citizen-portal-bff  && go build ./... && go vet ./... && go test ./... -race && gosec ./... && govulncheck ./...
-cd ../gov-services-api && go build ./... && go vet ./... && go test ./... -race && gosec ./... && govulncheck ./...
+cd citizen-portal-bff  && gofmt -l . && go build ./... && go vet ./... && go test ./... -race && gosec ./... && govulncheck ./...
+cd ../gov-services-api && gofmt -l . && go build ./... && go vet ./... && go test ./... -race && gosec ./... && govulncheck ./...
 cd ../../citizen-portal-demo-app && npm run build      # tsc -b must pass
 ```
+
+Re-run in full for M6 (after the post-M5 401 fix, commit `0d99599`, touched
+`internal/httpapi/data_routes.go` and three of its per-app callers): both modules pass every gate
+above with **zero** gosec issues and **zero** govulncheck vulnerabilities — the pre-existing
+`#nosec` suppressions (3 in `citizen-portal-bff`, 1 in `gov-services-api`) are unchanged and still
+individually justified. This is M6's exit bar per `PORTAL-INTEGRATION-PLAN.md`; see
+`M6-SESSION-NOTES.md` for the per-command results.
 
 Every package other than each module's `cmd/` entrypoint has unit tests written before its
 implementation (TDD): `security` and `session` are pure-logic tests; `oidcrp` runs its
@@ -184,8 +212,15 @@ and otherwise by hand. That is a real gap, not a decision anyone should read as 
 - **Access-token refresh** — if a citizen's access token expires before the BFF's own session idle
   timeout, an `/api/...` call simply fails with whatever `gov-services-api` returns for an
   expired token; there is no refresh-token handling yet. A documented gap, not an oversight.
-- **A live browser run.** Neither the BFF's `/bff/{app}/api/...` routes nor anything M5 added has
-  been exercised end to end against the running stack in a browser. The two CSPs are the most
-  likely thing to be subtly wrong, because a CSP failure is silent in tests and total in a
-  browser. `M5-SESSION-NOTES.md`'s "Still not proven" section is the full list;
+- **A full live browser run, all ten steps of the plan's "Manual, end to end" checklist in one
+  sitting.** A live pass after M5 did exercise real `/bff/{app}/api/...` calls and found a real
+  defect — an upstream 401 from `gov-services-api` (a misconfigured access-token type, not an
+  expired session) was indistinguishable from a genuinely expired BFF session, sending the citizen
+  into a re-login loop that could never succeed; fixed in the commit right before M6
+  ("Fix the incorrect 401 error in session scenario even when the session is valid"). That proves
+  the CSP and the SSO round trip work well enough to reach a data call — but the full ten-step
+  walk-through (both micro apps, the session inspector side by side, cold entry, single logout,
+  the devtools cookie/header checks) has not been run and re-confirmed as one pass since. The two
+  CSPs remain the most likely thing to be subtly wrong in a way tests cannot catch.
+  `M5-SESSION-NOTES.md`'s "Still not proven" section and `M6-SESSION-NOTES.md` have the detail;
   `MANUAL-STEPS.md` §8.3 has the M3-era unverified paths.
