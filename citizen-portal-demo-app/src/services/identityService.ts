@@ -102,6 +102,7 @@ function genericDetail(id: string, title: string, description: string, fee: stri
 }
 
 const identityProviders: IdentityProvider[] = [
+  { id: 'wallet', name: 'Continue with Wallet', description: 'wallet credential · substantial assurance · scan to sign in or register', assuranceLevel: 'substantial', externalHop: true },
   { id: 'mosip', name: 'Continue with MOSIP', description: 'national eID · substantial assurance · external hand-off', assuranceLevel: 'substantial', externalHop: true },
   { id: 'national-digital-id', name: 'Continue with National Digital ID', description: 'national eID · substantial assurance · external hand-off', assuranceLevel: 'substantial', externalHop: true },
   { id: 'mobile-otp', name: 'Sign in with Mobile OTP', description: 'code sent by SMS · basic assurance', assuranceLevel: 'basic', externalHop: false },

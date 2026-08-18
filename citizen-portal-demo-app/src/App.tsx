@@ -141,7 +141,7 @@ function ServiceDetailRoute({
  * contract unchanged; `goTo` is the adapter translating a Screen value into
  * a `navigate()` call via `screenToPath`. */
 function Shell() {
-  const { signIn, raiseAssurance, isAuthenticated } = useAuth();
+  const { signIn, signInWithWallet, raiseAssurance, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [activeServiceId, setActiveServiceId] = useState('svc-dl');
@@ -183,6 +183,14 @@ function Shell() {
   }
 
   function handleFederatedSelect(idpId: string, externalHop: boolean) {
+    if (idpId === 'wallet') {
+      // The one real path: full-page redirect through the BFF to ThunderID.
+      // loginSuccessTarget is plain React state, wiped by the navigation
+      // away from the SPA, so it's resolved to a URL path now and carried
+      // through as returnTo instead.
+      signInWithWallet(screenToPath(loginSuccessTarget, { serviceId: activeServiceId }));
+      return;
+    }
     if (externalHop) {
       goTo('federatedIdp');
     } else {
