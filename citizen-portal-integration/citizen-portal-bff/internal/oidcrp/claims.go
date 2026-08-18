@@ -25,6 +25,13 @@ type Claims struct {
 	Amr         []string
 	AuthTime    time.Time
 	Expiry      time.Time
+	// Raw is the complete decoded claim set of the same verified token, for
+	// callers that must show exactly what this client received rather than
+	// the fixed subset above (the session inspector's per-client claim
+	// comparison). It contains decoded claims only — never the raw token —
+	// and is populated only after verification succeeded, so no unverified
+	// claim can ever reach it.
+	Raw map[string]any
 }
 
 // rawClaims mirrors the wire representation of the claims Claims cares
@@ -51,6 +58,13 @@ func claimsFromIDToken(idToken *oidc.IDToken) (*Claims, error) {
 	if err := idToken.Claims(&raw); err != nil {
 		return nil, fmt.Errorf("oidcrp: decoding ID token claims: %w", err)
 	}
+	// A second decode of the same verified payload, this time untyped, so
+	// callers can see claims released by a client's own scopes that this
+	// package has no field for.
+	all := map[string]any{}
+	if err := idToken.Claims(&all); err != nil {
+		return nil, fmt.Errorf("oidcrp: decoding the full ID token claim set: %w", err)
+	}
 	c := &Claims{
 		Sub:         idToken.Subject,
 		Name:        raw.Name,
@@ -64,6 +78,7 @@ func claimsFromIDToken(idToken *oidc.IDToken) (*Claims, error) {
 		Acr:         raw.Acr,
 		Amr:         raw.Amr,
 		Expiry:      idToken.Expiry,
+		Raw:         all,
 	}
 	if raw.AuthTime > 0 {
 		c.AuthTime = time.Unix(raw.AuthTime, 0).UTC()

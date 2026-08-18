@@ -26,7 +26,9 @@ export function MicroAppHeader({ onSaveExit, appName = 'Driving Licence Service'
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
         {assuranceLevel === 'substantial' && <Badge tone="success" dot>Verified account</Badge>}
-        <span style={{ font: '400 12px var(--font-sans)' }}>{user?.displayName ?? 'J. Doe'}</span>
+        {/* No placeholder name: an unauthenticated micro app shows no identity
+            at all rather than a stand-in that looks like a signed-in citizen. */}
+        {user && <span style={{ font: '400 12px var(--font-sans)' }}>{user.displayName}</span>}
         <button type="button" onClick={onSaveExit} style={{ background: 'none', border: 'none', font: '500 11px var(--font-mono)', color: 'var(--text-secondary)', cursor: 'pointer', textDecoration: 'underline' }}>
           Save &amp; exit
         </button>

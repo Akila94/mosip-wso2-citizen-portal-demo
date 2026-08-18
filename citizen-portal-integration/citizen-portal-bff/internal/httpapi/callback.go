@@ -87,6 +87,10 @@ func (s *Server) handleCallback(app *AppRoute) http.HandlerFunc {
 			RawIDToken:           rawIDToken,
 			AccessToken:          token.AccessToken,
 			AccessTokenExpiresAt: token.Expiry,
+			// The full claim set is kept for the session inspector, which
+			// shows what each of the three clients was actually released.
+			// releasedClaims bounds it and drops the nonce first.
+			IDTokenClaims: releasedClaims(claims.Raw),
 		}
 
 		sessionKey, err := s.Sessions.CreateSession(sess)
@@ -94,14 +98,19 @@ func (s *Server) handleCallback(app *AppRoute) http.HandlerFunc {
 			s.internalError(w, err)
 			return
 		}
-		setCookie(w, app, s.CookieSecure, app.SessionCookieName, sessionKey, s.SessionIdleTimeout, true)
+		setCookie(w, app, s.CookieSecure, app.SessionCookieName, sessionKey, s.SessionIdleTimeout)
 
+		// The CSRF cookie is HttpOnly like every other cookie here: the SPA
+		// reads the token from GET /bff/{app}/session's JSON body instead of
+		// document.cookie (see handleSession), because a cookie scoped to
+		// Path=/bff/{app} is not visible to a document served from / or
+		// /apps/... under RFC 6265 §5.4 path-matching.
 		csrfToken, err := security.RandomToken(32)
 		if err != nil {
 			s.internalError(w, err)
 			return
 		}
-		setCookie(w, app, s.CookieSecure, app.CSRFCookieName, csrfToken, s.SessionIdleTimeout, false)
+		setCookie(w, app, s.CookieSecure, app.CSRFCookieName, csrfToken, s.SessionIdleTimeout)
 
 		http.Redirect(w, r, txn.ReturnTo, http.StatusFound)
 	}

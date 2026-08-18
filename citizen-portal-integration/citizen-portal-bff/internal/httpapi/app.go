@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"log/slog"
+	"net/http"
 	"time"
 
 	"github.com/akila94/mosip-wso2-citizen-portal-demo/citizen-portal-bff/internal/session"
@@ -56,6 +57,18 @@ type Server struct {
 	// internal/httpapi/portal_data.go, drivinglicence_data.go and
 	// revenuelicence_data.go for the named handlers that use it.
 	Upstream UpstreamClient
+
+	// SPA serves the single-page app for every path no /bff/... route
+	// matched, making the BFF the browser's only origin. It is built by
+	// internal/devproxy and is optional: with no SPA configured, an
+	// unmatched path is a JSON 404 (which is what the handler tests want,
+	// and what an API-only deployment should do).
+	SPA http.Handler
+	// SPADevMode must be true exactly when SPA proxies to the Vite dev
+	// server, since it selects the looser development
+	// Content-Security-Policy (security.SPAHeaders). It has no effect
+	// without SPA.
+	SPADevMode bool
 
 	// replaySeen remembers back-channel logout token jtis already
 	// processed, so a replayed token is rejected rather than re-destroying

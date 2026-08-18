@@ -106,6 +106,55 @@ func TestStoreDeleteWhereMatchingDestroysMultipleEntries(t *testing.T) {
 	}
 }
 
+func TestStoreFindWhereReturnsMatchesWithoutDeletingThem(t *testing.T) {
+	type entry struct {
+		Sid    string
+		AppKey string
+	}
+	s := NewStore[entry](100)
+	defer s.Close()
+
+	s.Put("session-a", entry{Sid: "shared-sid", AppKey: "portal"}, time.Minute)
+	s.Put("session-b", entry{Sid: "shared-sid", AppKey: "driving-licence"}, time.Minute)
+	s.Put("session-c", entry{Sid: "other-sid", AppKey: "revenue-licence"}, time.Minute)
+
+	found := s.FindWhere(func(v entry) bool { return v.Sid == "shared-sid" })
+	if len(found) != 2 {
+		t.Fatalf("FindWhere returned %d entries, want 2: %+v", len(found), found)
+	}
+	// The whole point of FindWhere over DeleteWhere: it is read-only.
+	if s.Len() != 3 {
+		t.Errorf("Len() after FindWhere = %d, want 3 — FindWhere must not remove anything", s.Len())
+	}
+	if _, ok := s.Get("session-a"); !ok {
+		t.Error("session-a must survive a FindWhere that matched it")
+	}
+}
+
+func TestStoreFindWhereSkipsExpiredEntries(t *testing.T) {
+	s := NewStore[string](100)
+	defer s.Close()
+
+	s.Put("live", "match", time.Minute)
+	s.Put("stale", "match", 10*time.Millisecond)
+	time.Sleep(30 * time.Millisecond)
+
+	found := s.FindWhere(func(v string) bool { return v == "match" })
+	if len(found) != 1 {
+		t.Fatalf("FindWhere returned %d entries, want 1 (the expired one must not match)", len(found))
+	}
+}
+
+func TestStoreFindWhereReturnsEmptyForNoMatch(t *testing.T) {
+	s := NewStore[string](100)
+	defer s.Close()
+
+	s.Put("k1", "v1", time.Minute)
+	if found := s.FindWhere(func(v string) bool { return v == "nope" }); len(found) != 0 {
+		t.Fatalf("FindWhere returned %d entries, want 0", len(found))
+	}
+}
+
 func TestStoreConcurrentAccess(t *testing.T) {
 	s := NewStore[int](1000)
 	defer s.Close()

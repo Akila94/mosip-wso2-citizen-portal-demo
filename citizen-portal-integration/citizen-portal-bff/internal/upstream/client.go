@@ -54,19 +54,48 @@ func New(baseURL string, httpClient *http.Client) *Client {
 	return &Client{baseURL: baseURL, httpClient: httpClient}
 }
 
-// do is the shared, unexported request path: builds an
-// "Authorization: Bearer <accessToken>" request, sends it, and reads the
-// response body up to maxUpstreamResponseBytes via io.LimitReader.
+// do is the request path for every call made on a citizen's behalf: it
+// builds an "Authorization: Bearer <accessToken>" request and sends it. It
+// is the only place in this package that sets an Authorization header.
 func (c *Client) do(ctx context.Context, method, path, accessToken string, body io.Reader) (Response, error) {
-	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
+	req, err := c.newRequest(ctx, method, path, body)
 	if err != nil {
-		return Response{}, fmt.Errorf("upstream: building request for %s %s: %w", method, path, err)
+		return Response{}, err
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
+	return c.send(req, method, path)
+}
+
+// doPublic is the request path for gov-services-api's unauthenticated
+// /public/* routes. It sets **no** Authorization header at all — deliberately
+// not an empty "Bearer " value, which is a different request on the wire and
+// would misrepresent an anonymous call as a failed authenticated one (and,
+// on a stricter upstream, would be answered 400 for a malformed header
+// rather than served).
+func (c *Client) doPublic(ctx context.Context, method, path string) (Response, error) {
+	req, err := c.newRequest(ctx, method, path, nil)
+	if err != nil {
+		return Response{}, err
+	}
+	return c.send(req, method, path)
+}
+
+// newRequest builds the request both paths share, without any credential.
+func (c *Client) newRequest(ctx context.Context, method, path string, body io.Reader) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("upstream: building request for %s %s: %w", method, path, err)
+	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	return req, nil
+}
 
+// send performs req and reads the response body up to
+// maxUpstreamResponseBytes via io.LimitReader. method and path are carried
+// only for error messages, since req's own URL includes the base URL.
+func (c *Client) send(req *http.Request, method, path string) (Response, error) {
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return Response{}, fmt.Errorf("upstream: calling %s %s: %w", method, path, err)
@@ -84,6 +113,19 @@ func (c *Client) do(ctx context.Context, method, path, accessToken string, body 
 		ContentType: resp.Header.Get("Content-Type"),
 		Body:        respBody,
 	}, nil
+}
+
+// PublicPortalCatalogue calls GET /public/catalogue — gov-services-api's
+// unauthenticated service catalogue, used by the portal's landing page for
+// signed-out visitors.
+//
+// It takes no access token (there is no session behind this call) and sends
+// no assuranceLevel (there is no session to derive one from, and
+// gov-services-api ignores the parameter on this route anyway). The absence
+// of both parameters is the point: a public call has structurally nothing to
+// leak.
+func (c *Client) PublicPortalCatalogue(ctx context.Context) (Response, error) {
+	return c.doPublic(ctx, http.MethodGet, "/public/catalogue")
 }
 
 // PortalCatalogue calls GET /portal/catalogue with assuranceLevel as the

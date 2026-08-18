@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -128,6 +129,32 @@ func TestAuthCodeURLIncludesPKCEAndNonce(t *testing.T) {
 	if parsed.Get("code_challenge") == "" {
 		t.Error("code_challenge missing")
 	}
+	if parsed.Has("prompt") {
+		t.Errorf("prompt = %q, want it absent unless the caller asked for it", parsed.Get("prompt"))
+	}
+}
+
+func TestAuthCodeURLCarriesPromptOnlyWhenRequested(t *testing.T) {
+	idp := newTestIDP(t)
+	rp := newTestRP(t, idp)
+
+	u := rp.AuthCodeURL(AuthRequest{
+		State:        "state-1",
+		Nonce:        "nonce-1",
+		CodeVerifier: "verifier-abc-1234567890123456789012345678901234",
+		Prompt:       "login",
+	})
+	parsed, err := parseQuery(u)
+	if err != nil {
+		t.Fatalf("parsing auth URL: %v", err)
+	}
+	if parsed.Get("prompt") != "login" {
+		t.Errorf("prompt = %q, want login", parsed.Get("prompt"))
+	}
+	// The step-up request is otherwise an ordinary authorization request.
+	if parsed.Get("code_challenge_method") != "S256" || parsed.Get("nonce") != "nonce-1" {
+		t.Errorf("step-up lost PKCE or nonce: %v", parsed)
+	}
 }
 
 func TestVerifyIDTokenAcceptsValidToken(t *testing.T) {
@@ -151,6 +178,33 @@ func TestVerifyIDTokenAcceptsValidToken(t *testing.T) {
 	}
 	if len(claims.Amr) != 1 || claims.Amr[0] != "EsignetOIDCAuthenticator" {
 		t.Errorf("unexpected amr: %+v", claims.Amr)
+	}
+}
+
+func TestVerifyIDTokenExposesTheCompleteClaimSet(t *testing.T) {
+	idp := newTestIDP(t)
+	rp := newTestRP(t, idp)
+
+	tok := idp.sign(t, map[string]any{
+		"nonce":            "expected-nonce",
+		"name":             "Jane Citizen",
+		"custom_gov_claim": "issued-by-a-per-client-scope",
+	})
+
+	claims, err := rp.VerifyIDToken(context.Background(), tok, "expected-nonce")
+	if err != nil {
+		t.Fatalf("VerifyIDToken: %v", err)
+	}
+	// The session inspector shows what each client actually received, so
+	// Raw must carry claims Claims has no typed field for.
+	if claims.Raw["custom_gov_claim"] != "issued-by-a-per-client-scope" {
+		t.Errorf("Raw = %+v, want the client-specific claim", claims.Raw)
+	}
+	if claims.Raw["aud"] != "test-client" {
+		t.Errorf("Raw[aud] = %v, want test-client", claims.Raw["aud"])
+	}
+	if strings.Contains(fmt.Sprint(claims.Raw), tok) {
+		t.Error("Raw must hold decoded claims only, never the token itself")
 	}
 }
 

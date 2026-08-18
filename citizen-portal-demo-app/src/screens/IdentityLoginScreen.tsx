@@ -4,7 +4,6 @@ import { FederatedProviderRow } from '../components/identity/FederatedProviderRo
 import { AsyncState } from '../components/common/AsyncState';
 import { useIdentityProviders } from '../hooks/useIdentityData';
 import { useServiceDetail } from '../hooks/useIdentityData';
-import { identityService } from '../services/identityService';
 import { Input } from '../design-system/components/forms/Input';
 import { Tabs } from '../design-system/components/navigation/Tabs';
 import { Button } from '../design-system/components/core/Button';
@@ -17,6 +16,16 @@ export interface IdentityLoginScreenProps {
   onCancel: () => void;
 }
 
+/**
+ * Reference wireframe of the sign-in page — **not** the real one.
+ *
+ * WSO2 Identity Server hosts the login this portal actually uses; this screen
+ * survives under `/wireframes/*` to narrate what that page does. Submitting it
+ * deliberately does not authenticate anything: faking a session here would
+ * contradict the real one and make every subsequent data call fail with a
+ * confusing 401. The real sign-in is `AuthContext`'s `signIn()`, which
+ * redirects to IS.
+ */
 export function IdentityLoginScreen({ serviceId, onLocalSignIn, onFederatedSelect, onCancel }: IdentityLoginScreenProps) {
   const { data: service } = useServiceDetail(serviceId);
   const { data: idps, loading, error, reload } = useIdentityProviders();
@@ -27,7 +36,7 @@ export function IdentityLoginScreen({ serviceId, onLocalSignIn, onFederatedSelec
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  async function handleLocalSubmit(e: React.FormEvent) {
+  function handleLocalSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!identifier || !password) {
       setFormError(`Enter your ${identifierType === 'email' ? 'email address' : 'mobile number'} and password.`);
@@ -35,14 +44,12 @@ export function IdentityLoginScreen({ serviceId, onLocalSignIn, onFederatedSelec
     }
     setFormError(null);
     setSubmitting(true);
-    try {
-      await identityService.signInLocal(identifier, password);
-      onLocalSignIn();
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Sign-in failed.');
-    } finally {
+    // No credential check and no authentication: see this component's own doc
+    // comment. The brief pause keeps the wireframe's submitting state visible.
+    window.setTimeout(() => {
       setSubmitting(false);
-    }
+      onLocalSignIn();
+    }, 250);
   }
 
   return (

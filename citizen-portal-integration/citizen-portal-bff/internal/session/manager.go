@@ -42,6 +42,32 @@ func DeriveAssuranceLevel(amr []string) AssuranceLevel {
 	return AssuranceBasic
 }
 
+// The identity providers this BFF can name in a session projection. IS emits
+// no `idp` claim, so these are derived values, not claim values — see
+// DeriveIdentityProvider.
+const (
+	// IdentityProviderESignet is the federated national-ID provider.
+	IdentityProviderESignet = "MOSIP eSignet"
+	// IdentityProviderLocal is IS's own user store.
+	IdentityProviderLocal = "Username & Password"
+)
+
+// DeriveIdentityProvider maps an ID token's `amr` claim to a human-readable
+// identity-provider name for the session inspector. WSO2 IS emits no `idp`
+// claim of any kind, so this cannot be read off the token: `amr` carries the
+// authenticator that actually ran, which is the same signal
+// DeriveAssuranceLevel uses and is available with zero extra IS
+// configuration. Anything that is not the eSignet federated authenticator
+// means the citizen authenticated against IS's own user store.
+func DeriveIdentityProvider(amr []string) string {
+	for _, m := range amr {
+		if m == esignetAMR {
+			return IdentityProviderESignet
+		}
+	}
+	return IdentityProviderLocal
+}
+
 // Config bounds and times out both stores the Manager owns.
 type Config struct {
 	MaxSessions  int
@@ -126,6 +152,23 @@ func (m *Manager) DestroySession(key string) {
 // session — not just the app that received the logout token.
 func (m *Manager) DestroyBySid(sid string) int {
 	return m.sessions.DeleteWhere(func(s AuthSession) bool { return s.Sid == sid })
+}
+
+// FindBySid returns every live session sharing the given IdP sid, across all
+// three apps' entries in this single process, without touching them. This is
+// what lets the session inspector show "these clients are in the same SSO
+// session" from the BFF's own state, rather than asking IS (whose session
+// API needs the internal_login scope a JIT-provisioned citizen will not
+// hold).
+//
+// An empty sid never matches: a token with no `sid` claim cannot be
+// correlated to an IdP session, and grouping every sid-less session together
+// would invent an SSO relationship that does not exist.
+func (m *Manager) FindBySid(sid string) []AuthSession {
+	if sid == "" {
+		return nil
+	}
+	return m.sessions.FindWhere(func(s AuthSession) bool { return s.Sid == sid })
 }
 
 // Close stops both stores' background sweepers.

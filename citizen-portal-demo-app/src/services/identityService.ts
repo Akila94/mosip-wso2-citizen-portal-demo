@@ -1,11 +1,29 @@
+/**
+ * Wireframe B's data.
+ *
+ * **Everything in this file is a mock, and that is now the point.** WSO2
+ * Identity Server hosts the real login, provider choice and consent — the
+ * screens these functions feed live under `/wireframes/*` and exist to narrate
+ * what IS does, not to do it. The three sign-in functions that used to fake an
+ * authentication (`signInLocal`, `signInFederated`,
+ * `completeFederatedVerification`) have been removed outright rather than left
+ * behind a "demo only" comment: a function that flips this app into a
+ * signed-in state without a real IS session would contradict the actual
+ * session and make every subsequent data call fail with a confusing 401.
+ *
+ * `getServiceDetail` is the one mock here that still feeds a *real* route
+ * (`/services/:serviceId`) — `gov-services-api` has no service-detail router,
+ * so there is nothing real to call.
+ */
 import type {
   ServiceDetail,
   IdentityProvider,
   ConsentAttributeRequest,
-  AuthResult,
   ServiceRequestOptions,
+  AuthResult,
   AssuranceLevel,
 } from './types';
+import { clientForService } from '../config/clients';
 
 const DEFAULT_DELAY_MS = 550;
 
@@ -101,59 +119,80 @@ function genericDetail(id: string, title: string, description: string, fee: stri
   };
 }
 
+/**
+ * The providers WSO2 IS's own login page offers. Mirrors the Login Flow
+ * configured in the Console (Username & Password + MOSIP eSignet); this copy
+ * exists only for the wireframe screen, which no longer performs a sign-in.
+ */
 const identityProviders: IdentityProvider[] = [
   { id: 'mosip', name: 'Continue with MOSIP', description: 'national eID · substantial assurance · external hand-off', assuranceLevel: 'substantial', externalHop: true },
   { id: 'national-digital-id', name: 'Continue with National Digital ID', description: 'national eID · substantial assurance · external hand-off', assuranceLevel: 'substantial', externalHop: true },
   { id: 'mobile-otp', name: 'Sign in with Mobile OTP', description: 'code sent by SMS · basic assurance', assuranceLevel: 'basic', externalHop: false },
 ];
 
-const consentAttributes: ConsentAttributeRequest[] = [
-  { id: 'name', label: 'Full name', required: true, value: 'John Doe', source: 'National Digital ID' },
-  { id: 'nic', label: 'NIC number', required: true, value: '19•• ••• •••• 4471', source: 'National Digital ID' },
-  { id: 'dob', label: 'Date of birth', required: true, value: '04 Mar 1996', source: 'National Digital ID' },
-  { id: 'address', label: 'Address', required: true, value: '14 Lake Road, Marolia City', source: 'National Digital ID' },
-  { id: 'photo', label: 'Photograph', required: false, value: '[ image ]', source: 'National Digital ID' },
-];
+/**
+ * Attributes a service asks consent for, keyed by attribute id. Which subset
+ * a given service requests is derived from that service's registered scopes
+ * in `config/clients.ts`, so the two micro apps genuinely differ here rather
+ * than both showing one hardcoded list.
+ */
+const CONSENT_ATTRIBUTES: Record<string, ConsentAttributeRequest> = {
+  name: { id: 'name', label: 'Full name', required: true, value: 'from your verified record', source: 'National Digital ID' },
+  email: { id: 'email', label: 'Email address', required: false, value: 'from your verified record', source: 'National Digital ID' },
+  nic: { id: 'nic', label: 'NIC number', required: true, value: 'from your verified record', source: 'National Digital ID' },
+  dob: { id: 'dob', label: 'Date of birth', required: true, value: 'from your verified record', source: 'National Digital ID' },
+  address: { id: 'address', label: 'Address', required: true, value: 'from your verified record', source: 'National Digital ID' },
+};
+
+/** Which consent attributes each OIDC scope covers. */
+const SCOPE_ATTRIBUTES: Record<string, string[]> = {
+  profile: ['name', 'dob'],
+  email: ['email'],
+  address: ['nic', 'address'],
+};
 
 export const identityService = {
+  /** MOCKED — `gov-services-api` has no service-detail router. */
   getServiceDetail(serviceId: string, opts?: ServiceRequestOptions) {
     if (serviceId === 'svc-dl') return simulate(drivingLicenceDetail, opts);
     return simulate(genericDetail(serviceId, 'Service detail', 'Service description not yet authored for this catalogue entry.', '$—', '~5 min', 'Government'), opts);
   },
 
+  /** MOCKED — WSO2 IS's own login page is the real list. */
   getIdentityProviders(opts?: ServiceRequestOptions) {
     return simulate(identityProviders, opts);
   },
 
-  getConsentAttributes(_serviceId: string, opts?: ServiceRequestOptions) {
-    return simulate(consentAttributes, opts);
+  /**
+   * MOCKED — IS hosts the real consent page. Now honours `serviceId`: the
+   * attributes shown are derived from the scopes registered for whichever
+   * application implements that service, so the Vehicle Revenue Licence asks
+   * for visibly less than the Driving Licence Service does.
+   */
+  getConsentAttributes(serviceId: string, opts?: ServiceRequestOptions) {
+    const client = clientForService(serviceId);
+    const attributeIds = new Set<string>();
+    for (const scope of client?.scopes ?? ['profile']) {
+      for (const id of SCOPE_ATTRIBUTES[scope] ?? []) attributeIds.add(id);
+    }
+    const attributes = [...attributeIds].map((id) => CONSENT_ATTRIBUTES[id]).filter(Boolean);
+    return simulate(attributes, opts);
   },
 
-  /** Local username/password (or mobile+OTP) sign-in hosted by WSO2 Identity
-   * Server. Always succeeds in the demo; replace with a real OIDC
-   * authorization-code exchange when the identity server is wired up. */
-  signInLocal(_identifier: string, _secret: string, opts?: ServiceRequestOptions): Promise<AuthResult> {
-    return simulate({ assuranceLevel: 'basic' as AssuranceLevel }, opts);
-  },
-
-  /** Kicks off federated sign-in. IdPs with externalHop=true resolve to a
-   * pending state — the caller should route to the external IdP stub, then
-   * call completeFederatedVerification. */
-  signInFederated(idpId: string, opts?: ServiceRequestOptions): Promise<AuthResult> {
-    const idp = identityProviders.find((p) => p.id === idpId);
-    return simulate({ assuranceLevel: (idp?.assuranceLevel ?? 'basic') as AssuranceLevel }, opts);
-  },
-
-  /** Completes the hand-off from the external national eID stub (frame 9). */
-  completeFederatedVerification(_idpId: string, opts?: ServiceRequestOptions): Promise<AuthResult> {
-    return simulate({ assuranceLevel: 'substantial' as AssuranceLevel }, opts);
-  },
-
+  /** MOCKED — IS records the real consent decision. */
   submitConsent(_serviceId: string, _decisions: Record<string, boolean>, opts?: ServiceRequestOptions) {
     return simulate({ granted: true }, opts);
   },
 
-  /** Adaptive step-up MFA (TOTP or SMS code). Any 6-digit code succeeds in the demo. */
+  /**
+   * MOCKED — the wireframe step-up screen's 6-digit code check. Any 6-digit
+   * code succeeds.
+   *
+   * The real step-up path (`GET /bff/{app}/step-up`, which re-authorizes
+   * against IS with `prompt=login`) is implemented in the BFF but deliberately
+   * not wired into this flow: a full-page round trip through IS mid-application
+   * would discard the in-memory wizard state the citizen has just filled in.
+   */
   submitStepUp(code: string, opts?: ServiceRequestOptions): Promise<AuthResult> {
     if (!/^\d{6}$/.test(code)) return Promise.reject(new Error('Enter the 6-digit code.'));
     return simulate({ assuranceLevel: 'substantial' as AssuranceLevel }, opts);

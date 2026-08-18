@@ -6,18 +6,12 @@ import { DepartmentRecordCard } from '../components/profile/DepartmentRecordCard
 import { ConsentRow } from '../components/profile/ConsentRow';
 import { AsyncState } from '../components/common/AsyncState';
 import { useProfileData } from '../hooks/usePortalData';
-import { portalService } from '../services/portalService';
 import { Alert } from '../design-system/components/feedback/Alert';
 import type { Screen } from '../App';
 import styles from '../styles/layout.module.css';
 
 export function ProfileConsentsScreen({ onNavigate }: { onNavigate: (screen: Screen) => void }) {
   const { attributes, records, consents } = useProfileData();
-
-  const handleRevoke = async (id: string) => {
-    await portalService.revokeConsent(id);
-    consents.reload();
-  };
 
   return (
     <>
@@ -51,7 +45,7 @@ export function ProfileConsentsScreen({ onNavigate }: { onNavigate: (screen: Scr
           <AsyncState loading={consents.loading} error={consents.error} onRetry={consents.reload} isEmpty={consents.data?.length === 0} emptyMessage="No apps currently have access to your data.">
             <div style={{ border: '1.5px solid var(--border-default)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
               {(consents.data ?? []).map((c) => (
-                <ConsentRow key={c.id} consent={c} onRevoke={handleRevoke} />
+                <ConsentRow key={c.id} consent={c} />
               ))}
             </div>
           </AsyncState>

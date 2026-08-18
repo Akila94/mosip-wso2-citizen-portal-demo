@@ -279,11 +279,53 @@ export interface SessionRow {
   value: string;
 }
 
+/** One app currently holding a session against the same IdP session (`sid`). */
+export interface SessionInspectorClient {
+  appKey: string;
+  appName: string;
+}
+
+/**
+ * The session inspector's data, as returned by `/bff/{app}/api/session-inspector`.
+ *
+ * These are facts about the real session, not display rows: the panel composes
+ * its own labels and its own live countdown from `expiresAt`. `releasedClaims`
+ * is the actual ID-token claim set this client received, which is what makes
+ * the side-by-side comparison between the two micro apps meaningful — it is
+ * `Record<string, unknown>` rather than `Record<string, string | string[]>`
+ * because real claims include numbers (`exp`, `iat`, `auth_time`).
+ */
 export interface SessionInspectorData {
+  appKey: string;
+  clientId: string;
   clientLabel: string;
-  sessionRows: SessionRow[];
-  claims: Record<string, string | string[]>;
-  comparisonNote: string;
+  subject: string;
+  idp: string;
+  acr?: string;
+  amr: string[];
+  sid: string;
+  assuranceLevel: AssuranceLevel;
+  /** Seconds since the Unix epoch. */
+  authTime: number;
+  /** Seconds since the Unix epoch. */
+  expiresAt: number;
+  clientsInSession: SessionInspectorClient[];
+  releasedClaims: Record<string, unknown>;
+}
+
+/**
+ * The citizen's record as held by the government registry, keyed server-side
+ * by the verified OIDC subject and **projected by the calling app's scopes** —
+ * so the same citizen legitimately yields different fields to different micro
+ * apps. Absent fields mean "this app was not released that claim", never
+ * "unknown".
+ */
+export interface CitizenProfile {
+  sub: string;
+  name?: string;
+  birthdate?: string;
+  nic?: string;
+  address?: string;
 }
 
 export type AssuranceRequirement = 'low' | 'substantial' | 'high';

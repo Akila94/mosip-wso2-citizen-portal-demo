@@ -73,7 +73,7 @@ export function ApplicationStep2Screen({ wizard, onBack, onContinue, onJumpStep,
       <div style={{ display: 'flex', alignItems: 'center', padding: '0 var(--space-8)', background: 'var(--surface-sunken)' }}>
         <SessionInspectorToggle open={inspectorOpen} onToggle={() => setInspectorOpen((v) => !v)} />
       </div>
-      {inspectorOpen && <SessionInspectorPanel clientId="driving-licence" onCollapse={() => setInspectorOpen(false)} />}
+      {inspectorOpen && <SessionInspectorPanel appKey="driving-licence" onCollapse={() => setInspectorOpen(false)} />}
       <AppFooter compact />
     </>
   );

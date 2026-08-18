@@ -35,6 +35,14 @@ func (f *fakeUpstream) result() (upstream.Response, error) {
 	return f.response, nil
 }
 
+// PublicPortalCatalogue records only that it was called: it deliberately
+// has no access-token parameter, so a test asserting lastAccessToken == ""
+// is asserting a structural fact, not a convention.
+func (f *fakeUpstream) PublicPortalCatalogue(_ context.Context) (upstream.Response, error) {
+	f.lastMethod = "PublicPortalCatalogue"
+	return f.result()
+}
+
 func (f *fakeUpstream) PortalCatalogue(_ context.Context, accessToken, assuranceLevel string) (upstream.Response, error) {
 	f.lastMethod = "PortalCatalogue"
 	f.lastAccessToken = accessToken

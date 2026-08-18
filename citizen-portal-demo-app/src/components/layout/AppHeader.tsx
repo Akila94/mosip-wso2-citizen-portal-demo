@@ -23,7 +23,7 @@ export interface AppHeaderProps {
 }
 
 export function AppHeader({ onNavigate, breadcrumb, onSignIn }: AppHeaderProps) {
-  const { isAuthenticated, assuranceLevel } = useAuth();
+  const { isAuthenticated, assuranceLevel, signIn } = useAuth();
   return (
     <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-4)', padding: 'var(--space-3) var(--space-8)', borderBottom: '1px solid var(--border-default)', flexWrap: 'wrap' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
@@ -38,7 +38,9 @@ export function AppHeader({ onNavigate, breadcrumb, onSignIn }: AppHeaderProps) 
         <LanguageSwitcher />
         {!isAuthenticated && !breadcrumb && <AccessibilityToolbar variant="compact" />}
         <IdentityBadge assuranceLevel={assuranceLevel} />
-        {isAuthenticated ? <AccountMenu onNavigate={onNavigate} /> : <Button onClick={() => (onSignIn ? onSignIn() : onNavigate('identityLogin'))}>Sign in</Button>}
+        {/* Without an explicit handler, "Sign in" starts the real WSO2 IS
+            login rather than opening the login *wireframe*. */}
+        {isAuthenticated ? <AccountMenu onNavigate={onNavigate} /> : <Button onClick={() => (onSignIn ? onSignIn() : signIn())}>Sign in</Button>}
       </div>
     </header>
   );

@@ -20,6 +20,33 @@ func (s *Server) mountPortalDataRoutes(r chi.Router) {
 	r.Get("/department-records", s.handlePortalDepartmentRecords)
 }
 
+// handlePublicPortalCatalogue proxies GET /public/catalogue — the only
+// route on this BFF that is served without a session, and the only one that
+// calls gov-services-api with no access token at all.
+//
+// It exists because the portal's landing page shows the service catalogue to
+// signed-out visitors (LandingScreen renders ServiceCatalogue in both the
+// signed-in and signed-out branches): a government service catalogue is
+// public information, so requiring a citizen session to read it would be
+// wrong on the merits as well as broken on the screen.
+//
+// Being public is not the same as being unguarded. This route still runs the
+// whole middleware chain — security headers (including the strict API
+// Content-Security-Policy, since this is a JSON API response and not the
+// SPA), the 64 kB request-body cap — and the upstream client still bounds
+// the response body it reads. What it does not do is authenticate, and it
+// takes nothing at all from the caller: no assurance level, no path segment,
+// no query. It is one named handler for one named upstream path, which is
+// what keeps it from becoming the generic unauthenticated proxy this project
+// deliberately does not have.
+func (s *Server) handlePublicPortalCatalogue(w http.ResponseWriter, r *http.Request) {
+	// no-store matches every other data route here. The payload is identical
+	// for every visitor, so this is consistency rather than a privacy need.
+	w.Header().Set("Cache-Control", "no-store")
+	resp, err := s.Upstream.PublicPortalCatalogue(r.Context())
+	s.forwardUpstreamResponse(w, resp, err)
+}
+
 // handlePortalCatalogue proxies GET /portal/catalogue. assuranceLevel is
 // deliberately derived server-side from the verified session's `amr`
 // claim via session.DeriveAssuranceLevel, never taken from the incoming

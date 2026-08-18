@@ -6,18 +6,10 @@ import { SessionInspectorToggle } from '../components/session/SessionInspectorTo
 import { SessionInspectorPanel } from '../components/session/SessionInspectorPanel';
 import { AsyncState } from '../components/common/AsyncState';
 import { AppFooter } from '../components/layout/AppFooter';
-import { useVehicles } from '../hooks/useRevenueLicenceData';
+import { Alert } from '../design-system/components/feedback/Alert';
+import { useVehicles, useRevenueLicenceIdentity } from '../hooks/useRevenueLicenceData';
 import { revenueLicenceService } from '../services/revenueLicenceService';
 import styles from '../styles/layout.module.css';
-
-const NARROW_IDENTITY = {
-  name: 'John Doe',
-  badgeLabel: 'VERIFIED — NATIONAL DIGITAL ID',
-  attributes: [
-    { label: 'NIC number', value: '19•• ••• •••• 4471' },
-    { label: 'Released to', value: 'Vehicle Revenue Licence' },
-  ],
-};
 
 /**
  * Micro app B — Document D's SSO payoff (frame 19), never cut. Deliberately
@@ -27,15 +19,26 @@ const NARROW_IDENTITY = {
  */
 export function VehicleRevenueLicenceScreen({ onSaveExit }: { onSaveExit: () => void }) {
   const { data: vehicles, loading, error, reload } = useVehicles();
+  const identity = useRevenueLicenceIdentity();
   const [renewingId, setRenewingId] = useState<string | null>(null);
   const [renewedIds, setRenewedIds] = useState<string[]>([]);
+  const [renewError, setRenewError] = useState<string | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(false);
 
   async function handleRenew(vehicleId: string) {
     setRenewingId(vehicleId);
-    await revenueLicenceService.renewLicence(vehicleId);
-    setRenewingId(null);
-    setRenewedIds((ids) => [...ids, vehicleId]);
+    setRenewError(null);
+    try {
+      await revenueLicenceService.renewLicence(vehicleId);
+      setRenewedIds((ids) => [...ids, vehicleId]);
+      // The renewal is recorded server-side, so re-read rather than patching
+      // local state — the card's new due date comes from the registry.
+      reload();
+    } catch (err) {
+      setRenewError(err instanceof Error ? err.message : 'Could not renew this licence.');
+    } finally {
+      setRenewingId(null);
+    }
   }
 
   return (
@@ -55,6 +58,7 @@ export function VehicleRevenueLicenceScreen({ onSaveExit }: { onSaveExit: () => 
                   <h2 style={{ margin: 0, font: '600 14px var(--font-sans)' }}>Your vehicles</h2>
                   <span style={{ font: '400 11.5px var(--font-mono)', color: 'var(--text-secondary)' }}>already pulled from your profile — nothing typed</span>
                 </div>
+                {renewError && <Alert tone="danger">{renewError}</Alert>}
                 <AsyncState loading={false} error={null} isEmpty={vehicles.length === 0} emptyMessage="No vehicles registered to your verified NIC.">
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
                     {vehicles.map((v) => (
@@ -73,7 +77,9 @@ export function VehicleRevenueLicenceScreen({ onSaveExit }: { onSaveExit: () => 
               </div>
             </div>
             <div style={{ width: 360, flexShrink: 0, padding: 'var(--space-6)', background: 'var(--surface-sunken)', borderLeft: '1px solid var(--border-default)', minHeight: '100%', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-              <VerifiedIdentityPanel identity={NARROW_IDENTITY} />
+              <AsyncState loading={identity.loading} error={identity.error} onRetry={identity.reload} loadingLabel="Loading your verified identity…">
+                {identity.data && <VerifiedIdentityPanel identity={identity.data} />}
+              </AsyncState>
               <div style={{ border: '1px dotted var(--border-strong)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', font: '400 11.5px/1.55 var(--font-sans)', color: 'var(--text-primary)' }}>
                 <strong>Say this out loud in the demo:</strong> two services, two agencies, two consent grants — one sign-in. Then open the session inspector to show the same session id behind both.
               </div>
@@ -85,7 +91,7 @@ export function VehicleRevenueLicenceScreen({ onSaveExit }: { onSaveExit: () => 
         <span style={{ font: '400 11px var(--font-mono)', color: 'var(--text-secondary)' }}>same session as Driving Licence Service</span>
         <SessionInspectorToggle open={inspectorOpen} onToggle={() => setInspectorOpen((v) => !v)} />
       </div>
-      {inspectorOpen && <SessionInspectorPanel clientId="vehicle-revenue-licence" onCollapse={() => setInspectorOpen(false)} />}
+      {inspectorOpen && <SessionInspectorPanel appKey="revenue-licence" onCollapse={() => setInspectorOpen(false)} />}
       <AppFooter compact />
     </>
   );

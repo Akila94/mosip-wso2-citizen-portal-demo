@@ -3,9 +3,10 @@
 // "Citizen Portal" app only; M2 added Application A (Driving Licence
 // Service) and Application B (Vehicle Revenue Licence) alongside it; M3
 // adds the upstream.Client that calls gov-services-api on the citizen's
-// behalf, using the OAuth2 access token captured at login. The SPA
-// dev-proxy/static serving is added in a later milestone (see
-// PORTAL-INTEGRATION-PLAN.md).
+// behalf, using the OAuth2 access token captured at login; M5 makes this
+// process the browser's only origin by serving the SPA itself — from the
+// Vite dev server when DEV_PROXY_TARGET is set, from STATIC_DIR otherwise
+// (see internal/devproxy).
 package main
 
 import (
@@ -19,6 +20,7 @@ import (
 	"time"
 
 	"github.com/akila94/mosip-wso2-citizen-portal-demo/citizen-portal-bff/internal/config"
+	"github.com/akila94/mosip-wso2-citizen-portal-demo/citizen-portal-bff/internal/devproxy"
 	"github.com/akila94/mosip-wso2-citizen-portal-demo/citizen-portal-bff/internal/httpapi"
 	"github.com/akila94/mosip-wso2-citizen-portal-demo/citizen-portal-bff/internal/oidcrp"
 	"github.com/akila94/mosip-wso2-citizen-portal-demo/citizen-portal-bff/internal/session"
@@ -50,6 +52,19 @@ func run() error {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	cfg, err := config.Load(os.LookupEnv)
+	if err != nil {
+		return err
+	}
+
+	// The SPA is served from this same origin, so the browser never learns
+	// about a second host. This is built before any network work: a missing
+	// STATIC_DIR is a local mistake and should be reported immediately,
+	// rather than after a 30-second discovery attempt against IS.
+	spa, err := devproxy.New(devproxy.Config{
+		DevProxyTarget: cfg.DevProxyTarget,
+		StaticDir:      cfg.StaticDir,
+		Logger:         logger,
+	})
 	if err != nil {
 		return err
 	}
@@ -135,6 +150,11 @@ func run() error {
 		logger,
 		upstreamClient,
 	)
+
+	apiServer.SPA = spa
+	// SPADevMode must track exactly the same condition devproxy.New branches
+	// on, since it selects the looser development CSP.
+	apiServer.SPADevMode = cfg.DevProxyTarget != ""
 
 	httpServer := &http.Server{
 		Addr:              ":" + cfg.BFFPort,

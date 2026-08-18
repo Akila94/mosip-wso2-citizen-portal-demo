@@ -166,6 +166,24 @@ func Load(lookup LookupFunc) (Config, error) {
 		l.errs = append(l.errs, "SESSION_MAX_ENTRIES must be a positive integer")
 	}
 
+	// DEV_PROXY_TARGET is the origin every non-/bff request is forwarded to
+	// in development (the Vite dev server). An empty value selects static
+	// serving from STATIC_DIR instead, so only a non-empty value is checked.
+	// It must be an absolute http/https URL: a relative or scheme-less value
+	// would otherwise produce a reverse proxy that silently forwards
+	// nowhere, and a non-http scheme cannot be proxied at all.
+	if cfg.DevProxyTarget != "" {
+		target, err := url.Parse(cfg.DevProxyTarget)
+		switch {
+		case err != nil:
+			l.errs = append(l.errs, fmt.Sprintf("DEV_PROXY_TARGET: invalid URL %q", cfg.DevProxyTarget))
+		case target.Scheme != "http" && target.Scheme != "https":
+			l.errs = append(l.errs, fmt.Sprintf("DEV_PROXY_TARGET: %q must be an absolute http:// or https:// URL", cfg.DevProxyTarget))
+		case target.Host == "":
+			l.errs = append(l.errs, fmt.Sprintf("DEV_PROXY_TARGET: %q has no host", cfg.DevProxyTarget))
+		}
+	}
+
 	// COOKIE_SECURE defaults to whether the public URL is https, but an
 	// explicit value always wins — needed for a TLS-terminating reverse
 	// proxy in front of a plain-http origin.

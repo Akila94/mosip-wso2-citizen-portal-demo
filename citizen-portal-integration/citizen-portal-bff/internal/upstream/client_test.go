@@ -110,6 +110,52 @@ func TestDoReturnsErrorOnTransportFailure(t *testing.T) {
 	}
 }
 
+// TestPublicPortalCatalogueSendsNoAuthorizationHeaderAtAll pins the
+// difference between "no Authorization header" and "Authorization: Bearer "
+// with an empty value — they are different requests on the wire, and only
+// the first one honestly describes an unauthenticated call.
+func TestPublicPortalCatalogueSendsNoAuthorizationHeaderAtAll(t *testing.T) {
+	var headerPresent bool
+	var headerValue string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, headerPresent = r.Header["Authorization"]
+		headerValue = r.Header.Get("Authorization")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"path":"` + r.URL.Path + `","query":"` + r.URL.RawQuery + `"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c := newTestClient(t, srv.URL)
+
+	resp, err := c.PublicPortalCatalogue(context.Background())
+	if err != nil {
+		t.Fatalf("PublicPortalCatalogue: %v", err)
+	}
+	if headerPresent {
+		t.Errorf("Authorization header was present with value %q, want the header absent entirely", headerValue)
+	}
+	body := string(resp.Body)
+	if !strings.Contains(body, `"path":"/public/catalogue"`) {
+		t.Errorf("body = %s, want the public catalogue path", body)
+	}
+	// No assuranceLevel is ever sent: there is no session to derive one from.
+	if !strings.Contains(body, `"query":""`) {
+		t.Errorf("body = %s, want no query parameters at all", body)
+	}
+}
+
+func TestAuthenticatedCallsStillSendTheBearerHeader(t *testing.T) {
+	srv := echoServer(t)
+	c := newTestClient(t, srv.URL)
+
+	resp, err := c.PortalTimeline(context.Background(), "token-abc")
+	if err != nil {
+		t.Fatalf("PortalTimeline: %v", err)
+	}
+	if !strings.Contains(string(resp.Body), `"authorization":"Bearer token-abc"`) {
+		t.Errorf("body = %s, want the bearer token still sent on authenticated calls", resp.Body)
+	}
+}
+
 func TestPortalCatalogueOmitsQueryWhenAssuranceLevelEmpty(t *testing.T) {
 	srv := echoServer(t)
 	c := newTestClient(t, srv.URL)

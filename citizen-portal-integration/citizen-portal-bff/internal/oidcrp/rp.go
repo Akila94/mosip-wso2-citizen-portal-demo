@@ -55,6 +55,13 @@ type AuthRequest struct {
 	State        string
 	Nonce        string
 	CodeVerifier string
+	// Prompt, when non-empty, is sent as the OIDC `prompt` parameter. The
+	// BFF sets it to "login" for step-up re-authorization and leaves it
+	// empty everywhere else — an ordinary login must be free to reuse the
+	// existing IS session, which is what makes the SSO demo work. IS 7.3.0
+	// honours `prompt=login` by forcing re-authentication (see
+	// PORTAL-INTEGRATION-PLAN.md's appendix).
+	Prompt string
 }
 
 // AuthCodeURL builds the `/authorize` redirect URL for req, always with an
@@ -63,12 +70,15 @@ type AuthRequest struct {
 // BFF's own requests are compliant regardless of that Console setting.
 func (rp *RP) AuthCodeURL(req AuthRequest) string {
 	challenge := security.Challenge(req.CodeVerifier)
-	return rp.oauth2Cfg.AuthCodeURL(
-		req.State,
+	opts := []oauth2.AuthCodeOption{
 		oidc.Nonce(req.Nonce),
 		oauth2.SetAuthURLParam("code_challenge", challenge),
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
-	)
+	}
+	if req.Prompt != "" {
+		opts = append(opts, oauth2.SetAuthURLParam("prompt", req.Prompt))
+	}
+	return rp.oauth2Cfg.AuthCodeURL(req.State, opts...)
 }
 
 // Exchange redeems an authorization code for tokens, presenting the PKCE

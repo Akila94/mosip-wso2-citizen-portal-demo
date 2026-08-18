@@ -132,6 +132,30 @@ func (s *Store[T]) DeleteWhere(match func(T) bool) int {
 	return len(toRemove)
 }
 
+// FindWhere returns a copy of every non-expired entry for which match
+// returns true, in insertion order, without modifying the store. It is the
+// read-only counterpart of DeleteWhere, kept separate on purpose: the
+// session inspector queries live sessions on every poll, and reusing a
+// destructive primitive for a query is exactly the kind of accident that
+// would silently log every citizen out.
+func (s *Store[T]) FindWhere(match func(T) bool) []T {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	now := time.Now()
+	var found []T
+	for el := s.order.Front(); el != nil; el = el.Next() {
+		e := el.Value.(*entry[T])
+		if now.After(e.exp) {
+			continue
+		}
+		if match(e.value) {
+			found = append(found, e.value)
+		}
+	}
+	return found
+}
+
 // Len returns the number of live (non-expired) entries.
 func (s *Store[T]) Len() int {
 	s.mu.Lock()

@@ -100,25 +100,88 @@ Every screen composes the DS's own `Button`, `Card`, `Badge`, `Alert`, `Input`, 
 ## New deviations for A — flagged
 - **`LanguageSwitcher`** — no segmented-control primitive in the DS. Built from DS tokens. Copy is not translated yet.
 - **`AccessibilityToolbar`** — visual-only stub per product decision.
-- **No router** — a plain `Screen` state switch in `App.tsx` stands in for real routes. Every screen takes `onNavigate`, so swapping in `react-router` doesn't touch screen code.
+- ~~**No router**~~ — resolved in M4: `react-router-dom` now drives real URLs. As predicted, no screen component's props changed; `App.tsx` maps `Screen` → path in one place.
 - **STEP-UP / READY logic** — `stepUpRequired` per service is inferred from the wireframe's frame-2 annotations. Confirm against the real WSO2 Identity Server authorization policy once available.
 
-## Backend-integration points
-- `AuthContext` is a mock session (`signIn`/`signOut`/`raiseAssurance` just flip local state). Replace its internals with a real WSO2 Identity Server OIDC flow — the `{isAuthenticated, user, assuranceLevel}` shape consumed everywhere else doesn't need to change.
-- Every `*Service.ts` file simulates network latency (and can simulate failure via `{ fail: true }`) around in-memory mock data shaped like a real API response. Swap each function's body for a real `fetch` call; hooks and screens are unaffected.
-- Loading / error / empty states are all driven by the hook layer (`AsyncState` component) — not hardcoded per screen.
-- `ConsentRow`'s revoke button, `revenueLicenceService.renewLicence`, and `adminConsoleService.submitForReview` are the concrete points where real write APIs plug in.
+## Backend integration — done (M5)
+
+This app is no longer a standalone mock. It now runs **behind `citizen-portal-bff`**, which is the
+only browser-facing origin: in development the BFF reverse-proxies this Vite server, and in
+production it serves `dist/`. Open `http://localhost:8090`, never `http://localhost:5173` — a page
+loaded straight from Vite has no BFF session and every data call will fail.
+
+**No token of any kind reaches the browser.** The SPA holds only an opaque, `HttpOnly`,
+path-scoped session cookie per app; access and ID tokens live in the BFF's server-side session.
+There is no client ID, issuer URL or secret compiled into this bundle, and no `VITE_*`
+configuration — the app is deliberately zero-config.
+
+- `src/config/clients.ts` is the one registry of the three registered OIDC applications
+  (portal, driving-licence, revenue-licence). It replaced four scattered hardcoded copies of the
+  same facts, closing inconsistencies #1 and #7 below.
+- `src/services/http.ts` is the only place that touches the network: same-origin `fetch` with
+  `credentials: 'same-origin'`, the CSRF header on writes, and errors normalised to the
+  `Error(message)` shape `useAsync` already expected.
+- `AuthContext` takes an `appKey` and bootstraps `GET /bff/{app}/session` on mount. One provider
+  per route tree — the portal at the root, a nested one inside each micro app — because the three
+  are genuinely separate clients with separate tokens and released claims. `RequireAuth` redirects
+  to WSO2 IS and shows a splash rather than flashing a signed-out state.
+- Loading / error / empty states are still driven entirely by the hook layer (`AsyncState`), and
+  no screen component's props changed.
+
+### What is real and what is still mocked
+
+Real, via `/bff/{app}/api/…` → `gov-services-api` (JWT validated: signature, `iss`, `exp`, and a
+per-router audience, so one micro app's token is genuinely rejected by the other's endpoints):
+
+| Area | Endpoints |
+|---|---|
+| Portal | catalogue (public *and* authenticated), timeline, attributes, consents, documents, department records |
+| Driving Licence | application config, test slots, submit application, verified identity |
+| Revenue Licence | vehicles, renew licence, verified identity |
+| Session inspector | real `sub`/`sid`/`idp`/`acr`/`amr`, real released claims, live expiry countdown |
+
+Still in-memory fixtures, and why:
+
+| Function | Why |
+|---|---|
+| `portalService.getLifeEvents` | `gov-services-api` exposes no life-events router |
+| `identityService.getServiceDetail` | no service-detail router — the one mock still feeding a *real* route (`/services/:serviceId`) |
+| `applicationService.getMedicalReviewError` | no medical-review router |
+| `identityService.*` (providers, consent attributes, step-up) | WSO2 IS hosts the real login and consent; these feed `/wireframes/*` only |
+| `adminConsoleService`, `assistantService` | out of scope by design — the admin console and AI assistant stay mocked |
+
+The signed-out landing page reads the catalogue from a **public, unauthenticated** endpoint
+(`/bff/portal/public/catalogue`) rather than a second copy of the data in the browser: a
+government service catalogue is public information, and this keeps one source of truth.
+
+### Deliberately not wired
+
+- **Step-up is still the wireframe screen.** `GET /bff/{app}/step-up` (re-authorization with
+  `prompt=login`) exists in the BFF, but the driving-licence submit flow still routes through
+  `StepUpAuthScreen`: a full-page round trip through IS mid-application would discard the
+  in-memory wizard state. `AuthContext.raiseAssurance` is therefore a presentation-only override
+  that cannot grant anything — every server-side decision derives assurance from the verified
+  session's `amr` and ignores what a client says.
+- **Consent revoke is disabled**, with the reason in its tooltip. Revoking means calling WSO2 IS's
+  consent-management API — a separate integration — so `gov-services-api` serves consents
+  read-only. A button that appeared to work and silently reverted on reload would be worse.
+- `revenueLicenceService.renewLicence` and `adminConsoleService.submitForReview` remain the write
+  paths; the first is now real and CSRF-protected, the second is still mocked.
 
 ## Inconsistencies noticed across A–D (flag for cleanup before backend integration)
 Called out now, at the end of the wireframe set, per the request to surface drift before real integration work starts:
 
-1. **Hardcoded demo identity duplicated across services.** "John Doe" / "J. Doe", the NIC mask, and the DOB appear independently in `portalService.ts`, `identityService.ts`, `applicationService.ts`, and `sessionInspectorService.ts`. In a real integration these all come from one userinfo/ID-token response — worth extracting to a single mock-identity fixture the services share, so a later swap to real claims only touches one place.
+1. ~~**Hardcoded demo identity duplicated across services.**~~ **Closed in M5.** Identity now comes
+   from one place — the government registry, keyed server-side by the verified OIDC subject and
+   projected by each app's scopes (`services/verifiedIdentity.ts`). `NARROW_IDENTITY`,
+   `applicationService`'s `verifiedIdentity` block and `MicroAppHeader`'s `'J. Doe'` fallback are
+   all gone; unauthenticated now means no identity panel rather than a placeholder name.
 2. **Two ways of building a segmented/pill control** exist (`LanguageSwitcher`'s inline implementation vs. the payment-method radio cards in `ApplicationStep4Screen` vs. `AssuranceLevelPicker`) — all solve the same "the DS has no segmented control" gap independently. Worth consolidating into one shared `SegmentedControl` primitive now that a third and fourth use case (assurance level, Yes/No declarations) have appeared.
-3. **`Screen` union in `App.tsx` has grown to 20 values in one flat switch.** Fine for a demo, but naming isn't fully consistent (`appStep1..4` vs `applicationConfirmation`/`applicationError` vs `vehicleRevenueLicence`) — a real router migration is a good time to rename onto one scheme (e.g. all `application*`).
+3. ~~**`Screen` union in `App.tsx` has grown to 20 values in one flat switch.**~~ **Closed in M4.** `App.tsx` uses `react-router-dom`; the `Screen` union survives only as the input to one `screenToPath` map, so every screen keeps its `onNavigate(screen)` prop contract while URLs follow a single scheme (`/`, `/apps/{app}/…`, `/wireframes/…`).
 4. **Fee currency was briefly LKR then reverted to `$`** during earlier iteration; confirmed consistent as `$` everywhere now, but the mock data has no `currency` field — a real integration should carry currency explicitly rather than baking the symbol into strings.
 5. **`MicroAppHeader` was duplicated per micro app until this pass** (Driving Licence Service hardcoded); generalized with `appName`/`tagline` props when Document D needed a second micro app. Worth checking `AppHeader` (portal) and `IdentityShell` (auth) for the same drift if a third context appears.
 6. **`revenueLicenceService.renewLicence`'s return value (`receiptRef`) is currently unused** by `VehicleRevenueLicenceScreen` — the wireframe's "kept deliberately thin" note means no receipt UI exists yet; flag if a receipt/confirmation becomes in-scope later.
-7. **Session inspector claims are hand-authored per client** in `sessionInspectorService.ts` rather than derived from a single source of truth for "what this session's ID token contains" — fine for two clients, would not scale past a handful without a shared claims model.
+7. ~~**Session inspector claims are hand-authored per client.**~~ **Closed in M5.** The panel reads `/bff/{app}/api/session-inspector`, which the BFF answers from its own verified session state: the real `sub`, `sid`, `idp`, `acr`, `amr`, the real ID-token claim set this client received, and the list of apps sharing the same IdP session. The two micro apps differ because their tokens genuinely differ, not because two fixtures were written that way.
 
 ## Not built here (explicitly out of scope)
 Mobile app wireframes — a separate, later phase. All four web wireframes (A–D) are implemented. The consent screen's "Deny" remains visual-only (no blocking flow) per earlier product decision, and the deferred-auth variant (frame 23) is intentionally not wired into the canonical flow, per the wireframe's own framing.

@@ -30,17 +30,17 @@ func newDataRouteTestServer(t *testing.T, up UpstreamClient) (*Server, map[strin
 		"portal": {
 			Key: "portal", RoutePrefix: "/bff/portal", ReturnToPrefix: "/",
 			SessionCookieName: "cp_sid", LoginTxnCookieName: "cp_txn", CSRFCookieName: "cp_csrf",
-			ClientID: "portal-client-id", AppName: "Citizen Portal",
+			ClientID: "portal-client-id", AppName: "Citizen Portal", Client: &fakeClient{},
 		},
 		"driving-licence": {
 			Key: "driving-licence", RoutePrefix: "/bff/driving-licence", ReturnToPrefix: "/apps/driving-licence",
 			SessionCookieName: "dl_sid", LoginTxnCookieName: "dl_txn", CSRFCookieName: "dl_csrf",
-			ClientID: "dl-client-id", AppName: "Driving Licence Service",
+			ClientID: "dl-client-id", AppName: "Driving Licence Service", Client: &fakeClient{},
 		},
 		"revenue-licence": {
 			Key: "revenue-licence", RoutePrefix: "/bff/revenue-licence", ReturnToPrefix: "/apps/revenue-licence",
 			SessionCookieName: "vrl_sid", LoginTxnCookieName: "vrl_txn", CSRFCookieName: "vrl_csrf",
-			ClientID: "vrl-client-id", AppName: "Vehicle Revenue Licence",
+			ClientID: "vrl-client-id", AppName: "Vehicle Revenue Licence", Client: &fakeClient{},
 		},
 	}
 
@@ -369,6 +369,82 @@ func TestRevenueLicenceIdentityCallsCitizenProfile(t *testing.T) {
 	}
 	if up.lastMethod != "CitizenProfile" {
 		t.Errorf("upstream method = %q, want CitizenProfile", up.lastMethod)
+	}
+}
+
+// --- The CSRF round trip the SPA actually performs: read the token from
+// GET /session's body (it cannot read the HttpOnly, path-scoped cookie),
+// then echo it as X-CSRF-Token on a write. ---
+
+// csrfTokenFromSessionEndpoint performs the SPA's own first step: call
+// /bff/{app}/session with the session and CSRF cookies and read the token
+// out of the response body.
+func csrfTokenFromSessionEndpoint(t *testing.T, s *Server, app *AppRoute, sessionCookie, csrfCookie *http.Cookie) string {
+	t.Helper()
+
+	req := httptest.NewRequest(http.MethodGet, app.RoutePrefix+"/session", nil)
+	req.AddCookie(sessionCookie)
+	req.AddCookie(csrfCookie)
+	rec := httptest.NewRecorder()
+	s.Router().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("/session status = %d, want 200, body=%s", rec.Code, rec.Body.String())
+	}
+	var body sessionView
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decoding /session body: %v", err)
+	}
+	if body.CSRFToken == "" {
+		t.Fatal("/session returned no csrfToken — the SPA would have no way to perform a write")
+	}
+	return body.CSRFToken
+}
+
+func TestWriteRouteAcceptsTheCSRFTokenTheSessionEndpointHandedOut(t *testing.T) {
+	up := &fakeUpstream{response: upstream.Response{StatusCode: http.StatusOK, ContentType: "application/json", Body: []byte(`{"reference":"DL-1"}`)}}
+	s, apps := newDataRouteTestServer(t, up)
+	app := apps["driving-licence"]
+
+	sessionCookie := sessionCookieFor(t, s, app, session.AuthSession{AppKey: "driving-licence", AccessToken: "at-dl"})
+	csrfCookie, _ := csrfCookieAndHeader(app)
+	token := csrfTokenFromSessionEndpoint(t, s, app, sessionCookie, csrfCookie)
+
+	req := httptest.NewRequest(http.MethodPost, "/bff/driving-licence/api/applications", strings.NewReader(`{}`))
+	req.AddCookie(sessionCookie)
+	req.AddCookie(csrfCookie)
+	req.Header.Set(csrfHeaderName, token)
+	rec := httptest.NewRecorder()
+	s.Router().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200, body=%s", rec.Code, rec.Body.String())
+	}
+	if up.lastMethod != "DrivingLicenceSubmitApplication" {
+		t.Errorf("upstream method = %q", up.lastMethod)
+	}
+}
+
+func TestWriteRouteRejectsAHeaderThatDoesNotMatchTheCookie(t *testing.T) {
+	up := &fakeUpstream{}
+	s, apps := newDataRouteTestServer(t, up)
+	app := apps["driving-licence"]
+
+	sessionCookie := sessionCookieFor(t, s, app, session.AuthSession{AppKey: "driving-licence", AccessToken: "at-dl"})
+	csrfCookie, _ := csrfCookieAndHeader(app)
+
+	req := httptest.NewRequest(http.MethodPost, "/bff/driving-licence/api/applications", strings.NewReader(`{}`))
+	req.AddCookie(sessionCookie)
+	req.AddCookie(csrfCookie)
+	req.Header.Set(csrfHeaderName, csrfCookie.Value+"-tampered")
+	rec := httptest.NewRecorder()
+	s.Router().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403", rec.Code)
+	}
+	if up.lastMethod != "" {
+		t.Errorf("upstream must not be called for a mismatched CSRF token, got %q", up.lastMethod)
 	}
 }
 

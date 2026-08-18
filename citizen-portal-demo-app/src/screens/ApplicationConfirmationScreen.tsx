@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AppHeader } from '../components/layout/AppHeader';
 import { AppFooter } from '../components/layout/AppFooter';
 import { Button } from '../design-system/components/core/Button';
+import { Alert } from '../design-system/components/feedback/Alert';
 import { applicationService } from '../services/applicationService';
 import type { ApplicationConfirmation } from '../services/types';
 import type { Screen } from '../App';
@@ -9,16 +10,45 @@ import styles from '../styles/layout.module.css';
 
 export function ApplicationConfirmationScreen({ onNavigate }: { onNavigate: (screen: Screen) => void }) {
   const [confirmation, setConfirmation] = useState<ApplicationConfirmation | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
+  // Submitting on mount is the wireframe's own flow (arriving here *is* the
+  // submission). Now that this is a real, CSRF-protected POST it can fail, so
+  // the rejection is handled — an unhandled one would leave this screen saying
+  // "Submitting your application…" forever.
+  //
+  // Known gap: a browser refresh on this URL submits again. Making that safe
+  // needs an idempotency key carried from the wizard, which is a change to the
+  // submission contract rather than to this screen.
   useEffect(() => {
-    applicationService.submitApplication({}).then(setConfirmation);
+    let cancelled = false;
+    applicationService
+      .submitApplication({})
+      .then((result) => {
+        if (!cancelled) setConfirmation(result);
+      })
+      .catch((err: Error) => {
+        if (!cancelled) setError(err.message || 'Could not submit your application.');
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
     <>
       <AppHeader screen="applicationConfirmation" onNavigate={onNavigate} breadcrumb={['Driving licence', 'Confirmation']} />
       <main className={styles.page} style={{ maxWidth: 700 }}>
-        {!confirmation ? (
+        {error ? (
+          <Alert tone="danger" title="We couldn't submit your application">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+              <span>{error}</span>
+              <Button variant="secondary" size="sm" onClick={() => onNavigate('appStep4')} style={{ alignSelf: 'flex-start' }}>
+                Back to your application
+              </Button>
+            </div>
+          </Alert>
+        ) : !confirmation ? (
           <p style={{ font: '400 14px var(--font-sans)', color: 'var(--text-secondary)' }}>Submitting your application…</p>
         ) : (
           <>

@@ -18,8 +18,9 @@ const maxRequestBodyBytes = 64 * 1024
 // NewRouter builds gov-services-api's HTTP handler: one route group per
 // resource domain, each gated by authmw.RequireAudienceAndScope with its
 // own required audience (the client ID of the application allowed to call
-// it). No router in this project requires a custom scope on top of the
-// audience check — a citizen only ever holds an access token whose
+// it) — plus exactly one deliberately public group, /public, for information
+// that is public by its nature (see public.go). No router in this project
+// requires a custom scope on top of the audience check — a citizen only ever holds an access token whose
 // audience is the specific app they authenticated to, so the audience
 // check alone already proves "this citizen has a validly-authenticated
 // session with this app".
@@ -30,6 +31,14 @@ func NewRouter(v *authmw.Verifier, portalClientID, dlClientID, vrlClientID strin
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 	r.Use(requestBodyLimit)
+
+	// The only group mounted without an authmw middleware. It is listed
+	// first so that the one unauthenticated surface in this service is the
+	// first thing a reader of this function sees; see public.go for what
+	// may and may not live behind it.
+	r.Route("/public", func(pubr chi.Router) {
+		s.mountPublicRoutes(pubr)
+	})
 
 	r.Route("/portal", func(pr chi.Router) {
 		pr.Use(authmw.RequireAudienceAndScope(v, []string{portalClientID}, ""))

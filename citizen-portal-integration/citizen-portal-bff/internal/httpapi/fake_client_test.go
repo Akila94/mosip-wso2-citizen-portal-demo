@@ -34,6 +34,7 @@ type fakeClient struct {
 
 	logoutURL string
 
+	lastAuthRequest      oidcrp.AuthRequest
 	lastExchangeCode     string
 	lastExchangeVerifier string
 	lastVerifyRawIDToken string
@@ -41,10 +42,17 @@ type fakeClient struct {
 }
 
 func (f *fakeClient) AuthCodeURL(req oidcrp.AuthRequest) string {
+	f.lastAuthRequest = req
 	if f.authCodeURL != "" {
 		return f.authCodeURL
 	}
-	return fmt.Sprintf("https://idp.example/authorize?state=%s&nonce=%s", req.State, req.Nonce)
+	// Mirrors the real RP: `prompt` appears in the authorize URL only when
+	// the caller asked for it (step-up), never on an ordinary login.
+	authURL := fmt.Sprintf("https://idp.example/authorize?state=%s&nonce=%s", req.State, req.Nonce)
+	if req.Prompt != "" {
+		authURL += "&prompt=" + req.Prompt
+	}
+	return authURL
 }
 
 func (f *fakeClient) Exchange(ctx context.Context, code, codeVerifier string) (*oauth2.Token, error) {

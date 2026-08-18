@@ -177,6 +177,53 @@ func TestLoadRejectsNonPositiveSessionMaxEntries(t *testing.T) {
 	}
 }
 
+func TestLoadAcceptsAnAbsoluteHTTPDevProxyTarget(t *testing.T) {
+	for _, target := range []string{"http://localhost:5173", "https://vite.internal:5173", "http://127.0.0.1:5173/"} {
+		env := validEnv()
+		env["DEV_PROXY_TARGET"] = target
+		cfg, err := Load(lookupFrom(env))
+		if err != nil {
+			t.Fatalf("Load(DEV_PROXY_TARGET=%q): %v", target, err)
+		}
+		if cfg.DevProxyTarget != target {
+			t.Errorf("DevProxyTarget = %q, want %q", cfg.DevProxyTarget, target)
+		}
+	}
+}
+
+func TestLoadRejectsMalformedDevProxyTarget(t *testing.T) {
+	cases := map[string]string{
+		"no scheme":         "localhost:5173",
+		"relative path":     "/vite",
+		"unsupported schme": "ftp://localhost:5173",
+		"no host":           "http://",
+		"not a url":         "http://loc alhost:5173",
+		"control character": "http://localhost:5173\n",
+	}
+	for name, target := range cases {
+		t.Run(name, func(t *testing.T) {
+			env := validEnv()
+			env["DEV_PROXY_TARGET"] = target
+			if _, err := Load(lookupFrom(env)); err == nil {
+				t.Fatalf("expected Load to reject DEV_PROXY_TARGET=%q", target)
+			}
+		})
+	}
+}
+
+func TestLoadDefaultsToStaticSPAServing(t *testing.T) {
+	cfg, err := Load(lookupFrom(validEnv()))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.DevProxyTarget != "" {
+		t.Errorf("DevProxyTarget = %q, want empty (static mode by default)", cfg.DevProxyTarget)
+	}
+	if cfg.StaticDir != "../../citizen-portal-demo-app/dist" {
+		t.Errorf("StaticDir = %q", cfg.StaticDir)
+	}
+}
+
 func TestLoadOverridesEverythingFromEnv(t *testing.T) {
 	env := validEnv()
 	env["BFF_PORT"] = "9090"

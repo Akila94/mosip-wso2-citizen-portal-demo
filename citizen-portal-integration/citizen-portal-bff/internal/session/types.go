@@ -56,4 +56,15 @@ type AuthSession struct {
 	// an expired token, and that failure surfaces to the SPA as a normal
 	// upstream error. This is a known, documented gap, not an oversight.
 	AccessTokenExpiresAt time.Time
+	// IDTokenClaims is the complete, already-verified ID-token claim set
+	// this app's client received, kept so the session inspector can show
+	// what each of the three clients was actually released — the difference
+	// between them is the point of that screen, and the typed User/Acr/Amr
+	// fields above are only the subset the BFF itself acts on.
+	//
+	// It holds decoded claims only: the raw token is never a member (that
+	// is RawIDToken's job), and the per-transaction `nonce` is stripped
+	// before storing. The map is bounded when it is built — see
+	// releasedClaims in internal/httpapi.
+	IDTokenClaims map[string]any
 }
