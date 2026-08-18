@@ -118,6 +118,31 @@ func TestPublicCatalogueCarriesTheStrictAPISecurityHeaders(t *testing.T) {
 	}
 }
 
+// The session-backed routes translate an upstream 401 (an access token was
+// rejected — see data_routes.go). This route sends no access token at all, so
+// there is nothing to translate: a 401 here is gov-services-api's own answer
+// about its own public route, and passing it through unchanged is the honest
+// report.
+func TestPublicCatalogueForwardsUpstreamUnauthorizedVerbatim(t *testing.T) {
+	up := &fakeUpstream{response: upstream.Response{
+		StatusCode:  http.StatusUnauthorized,
+		ContentType: "application/json",
+		Body:        []byte(`{"error":"unauthorized"}`),
+	}}
+	s, _ := newDataRouteTestServer(t, up)
+
+	req := httptest.NewRequest(http.MethodGet, "/bff/portal/public/catalogue", nil)
+	rec := httptest.NewRecorder()
+	s.Router().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401 forwarded unchanged on the session-less route", rec.Code)
+	}
+	if rec.Body.String() != `{"error":"unauthorized"}` {
+		t.Errorf("body = %q, want the upstream body forwarded verbatim", rec.Body.String())
+	}
+}
+
 func TestPublicCatalogueRespondsWithBadGatewayOnUpstreamTransportError(t *testing.T) {
 	up := &fakeUpstream{err: errUpstreamTransportFailureForTest}
 	s, _ := newDataRouteTestServer(t, up)

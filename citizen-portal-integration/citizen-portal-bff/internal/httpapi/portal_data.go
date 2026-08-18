@@ -10,7 +10,8 @@ import (
 // mountPortalDataRoutes registers the portal app's /bff/portal/api/*
 // routes on r. Every route requires a session (the caller wraps r with
 // s.requireSession(app) before calling this) and forwards the call to
-// gov-services-api via s.Upstream, passing the response through verbatim.
+// gov-services-api via s.Upstream, passing the response through verbatim
+// except for an upstream 401 — see forwardSessionUpstreamResponse.
 func (s *Server) mountPortalDataRoutes(r chi.Router) {
 	r.Get("/catalogue", s.handlePortalCatalogue)
 	r.Get("/timeline", s.handlePortalTimeline)
@@ -44,7 +45,9 @@ func (s *Server) handlePublicPortalCatalogue(w http.ResponseWriter, r *http.Requ
 	// for every visitor, so this is consistency rather than a privacy need.
 	w.Header().Set("Cache-Control", "no-store")
 	resp, err := s.Upstream.PublicPortalCatalogue(r.Context())
-	s.forwardUpstreamResponse(w, resp, err)
+	// The only caller of the verbatim forwarder: with no session behind it
+	// there is no access token whose rejection could need explaining.
+	s.forwardPublicUpstreamResponse(w, resp, err)
 }
 
 // handlePortalCatalogue proxies GET /portal/catalogue. assuranceLevel is
@@ -63,7 +66,7 @@ func (s *Server) handlePortalCatalogue(w http.ResponseWriter, r *http.Request) {
 	}
 	assuranceLevel := string(session.DeriveAssuranceLevel(sess.Amr))
 	resp, err := s.Upstream.PortalCatalogue(r.Context(), sess.AccessToken, assuranceLevel)
-	s.forwardUpstreamResponse(w, resp, err)
+	s.forwardSessionUpstreamResponse(w, r, sess, resp, err)
 }
 
 // handlePortalTimeline proxies GET /portal/timeline.
@@ -74,7 +77,7 @@ func (s *Server) handlePortalTimeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp, err := s.Upstream.PortalTimeline(r.Context(), sess.AccessToken)
-	s.forwardUpstreamResponse(w, resp, err)
+	s.forwardSessionUpstreamResponse(w, r, sess, resp, err)
 }
 
 // handlePortalAttributes proxies GET /portal/attributes.
@@ -85,7 +88,7 @@ func (s *Server) handlePortalAttributes(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	resp, err := s.Upstream.PortalAttributes(r.Context(), sess.AccessToken)
-	s.forwardUpstreamResponse(w, resp, err)
+	s.forwardSessionUpstreamResponse(w, r, sess, resp, err)
 }
 
 // handlePortalConsents proxies GET /portal/consents.
@@ -96,7 +99,7 @@ func (s *Server) handlePortalConsents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp, err := s.Upstream.PortalConsents(r.Context(), sess.AccessToken)
-	s.forwardUpstreamResponse(w, resp, err)
+	s.forwardSessionUpstreamResponse(w, r, sess, resp, err)
 }
 
 // handlePortalDocuments proxies GET /portal/documents.
@@ -107,7 +110,7 @@ func (s *Server) handlePortalDocuments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp, err := s.Upstream.PortalDocuments(r.Context(), sess.AccessToken)
-	s.forwardUpstreamResponse(w, resp, err)
+	s.forwardSessionUpstreamResponse(w, r, sess, resp, err)
 }
 
 // handlePortalDepartmentRecords proxies GET /portal/department-records.
@@ -118,5 +121,5 @@ func (s *Server) handlePortalDepartmentRecords(w http.ResponseWriter, r *http.Re
 		return
 	}
 	resp, err := s.Upstream.PortalDepartmentRecords(r.Context(), sess.AccessToken)
-	s.forwardUpstreamResponse(w, resp, err)
+	s.forwardSessionUpstreamResponse(w, r, sess, resp, err)
 }

@@ -25,7 +25,7 @@ func (s *Server) handleVehicleRegistryVehicles(w http.ResponseWriter, r *http.Re
 		return
 	}
 	resp, err := s.Upstream.VehicleRegistryVehicles(r.Context(), sess.AccessToken)
-	s.forwardUpstreamResponse(w, resp, err)
+	s.forwardSessionUpstreamResponse(w, r, sess, resp, err)
 }
 
 // handleRevenueLicenceIdentity proxies GET /citizen/profile — the same
@@ -39,7 +39,7 @@ func (s *Server) handleRevenueLicenceIdentity(w http.ResponseWriter, r *http.Req
 		return
 	}
 	resp, err := s.Upstream.CitizenProfile(r.Context(), sess.AccessToken)
-	s.forwardUpstreamResponse(w, resp, err)
+	s.forwardSessionUpstreamResponse(w, r, sess, resp, err)
 }
 
 // handleVehicleRegistryRenew proxies POST
@@ -61,6 +61,6 @@ func (s *Server) handleVehicleRegistryRenew(app *AppRoute) http.HandlerFunc {
 
 		vehicleID := chi.URLParam(r, "id")
 		resp, err := s.Upstream.VehicleRegistryRenew(r.Context(), sess.AccessToken, vehicleID)
-		s.forwardUpstreamResponse(w, resp, err)
+		s.forwardSessionUpstreamResponse(w, r, sess, resp, err)
 	}
 }

@@ -1,8 +1,10 @@
 package httpapi
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -463,5 +465,226 @@ func TestPortalTimelineRespondsWithBadGatewayOnUpstreamTransportError(t *testing
 
 	if rec.Code != http.StatusBadGateway {
 		t.Fatalf("status = %d, want 502", rec.Code)
+	}
+}
+
+// --- An upstream 401 is two different failures wearing one status code:
+// an access token that really has expired (the citizen can fix that by
+// signing in again) and a live token the resource server refused for a
+// configuration reason (they cannot). Forwarding both as 401 sent a citizen
+// into a re-login loop that could never work, so they are told apart here. ---
+
+// recordingLogger returns a logger writing into the returned buffer, so a
+// test can assert on what a handler logged. These log lines are not
+// incidental: pointing the next reader at the real cause of an upstream 401
+// is half of what this split exists for, so they are worth asserting on.
+func recordingLogger() (*slog.Logger, *bytes.Buffer) {
+	var logs bytes.Buffer
+	return slog.New(slog.NewTextHandler(&logs, nil)), &logs
+}
+
+// upstreamRejectedResponse is what gov-services-api answers with when it
+// refuses an access token — the body is deliberately distinctive so a test
+// can prove the BFF did not pass it through.
+func upstreamRejectedResponse(statusCode int) upstream.Response {
+	return upstream.Response{
+		StatusCode:  statusCode,
+		ContentType: "application/json",
+		Body:        []byte(`{"error":"invalid_token","error_description":"upstream detail that must not reach the browser"}`),
+	}
+}
+
+func TestUpstreamUnauthorizedWithAnExpiredAccessTokenStaysUnauthorized(t *testing.T) {
+	up := &fakeUpstream{response: upstreamRejectedResponse(http.StatusUnauthorized)}
+	s, apps := newDataRouteTestServer(t, up)
+	logger, logs := recordingLogger()
+	s.Logger = logger
+	app := apps["portal"]
+
+	sess := session.AuthSession{
+		AppKey:               "portal",
+		AccessToken:          "at-expired",
+		AccessTokenExpiresAt: time.Now().Add(-time.Minute),
+	}
+	cookie := sessionCookieFor(t, s, app, sess)
+	req := httptest.NewRequest(http.MethodGet, "/bff/portal/api/timeline", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	s.Router().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401 — the token really had expired, so signing in again is the fix", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), "upstream detail") {
+		t.Errorf("body = %q, want our own message rather than the upstream error body", rec.Body.String())
+	}
+	if strings.Contains(logs.String(), "level=ERROR") {
+		t.Errorf("logged at ERROR: %q — an expired token is an expected condition, not a fault", logs.String())
+	}
+	if !strings.Contains(logs.String(), "level=WARN") {
+		t.Errorf("logs = %q, want a WARN line recording the expired token", logs.String())
+	}
+}
+
+func TestUpstreamUnauthorizedWithALiveAccessTokenIsABadGateway(t *testing.T) {
+	up := &fakeUpstream{response: upstreamRejectedResponse(http.StatusUnauthorized)}
+	s, apps := newDataRouteTestServer(t, up)
+	logger, logs := recordingLogger()
+	s.Logger = logger
+	app := apps["portal"]
+
+	sess := session.AuthSession{
+		AppKey:               "portal",
+		AccessToken:          "at-live",
+		AccessTokenExpiresAt: time.Now().Add(time.Hour),
+	}
+	cookie := sessionCookieFor(t, s, app, sess)
+	req := httptest.NewRequest(http.MethodGet, "/bff/portal/api/timeline", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	s.Router().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d, want 502 — the citizen's session is fine, so calling this a session expiry is a lie", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), "upstream detail") {
+		t.Errorf("body = %q, want our own message rather than the upstream error body", rec.Body.String())
+	}
+
+	logged := logs.String()
+	if !strings.Contains(logged, "level=ERROR") {
+		t.Errorf("logs = %q, want an ERROR line — a rejected live token is a server-side fault", logged)
+	}
+	if !strings.Contains(logged, "/bff/portal/api/timeline") {
+		t.Errorf("logs = %q, want the request path so the failing call is identifiable", logged)
+	}
+	if !strings.Contains(logged, "401") {
+		t.Errorf("logs = %q, want the upstream status", logged)
+	}
+	if !strings.Contains(logged, "opaque") || !strings.Contains(logged, "JWT") {
+		t.Errorf("logs = %q, want the known cause named (an opaque, non-JWT access token on the Console registration)", logged)
+	}
+	if strings.Contains(logged, "at-live") {
+		t.Errorf("logs = %q, want no access token in a log line ever", logged)
+	}
+}
+
+func TestUpstreamUnauthorizedWithUnknownTokenExpiryIsABadGateway(t *testing.T) {
+	up := &fakeUpstream{response: upstreamRejectedResponse(http.StatusUnauthorized)}
+	s, apps := newDataRouteTestServer(t, up)
+	app := apps["portal"]
+
+	// No AccessTokenExpiresAt at all: IS did not tell us when the token
+	// expires, so "expired" is unproven and blaming the citizen's session
+	// would be a guess. Treated as the server-side fault it more likely is.
+	cookie := sessionCookieFor(t, s, app, session.AuthSession{AppKey: "portal", AccessToken: "at-1"})
+	req := httptest.NewRequest(http.MethodGet, "/bff/portal/api/timeline", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	s.Router().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d, want 502 for an unknown token expiry", rec.Code)
+	}
+}
+
+// The split has to be uniform across every session-backed route, not just
+// the one it was first noticed on.
+func TestUpstreamUnauthorizedIsTranslatedOnEverySessionBackedApp(t *testing.T) {
+	cases := []struct {
+		name     string
+		appKey   string
+		method   string
+		path     string
+		withCSRF bool
+	}{
+		{name: "portal read", appKey: "portal", method: http.MethodGet, path: "/bff/portal/api/catalogue"},
+		{name: "portal department records", appKey: "portal", method: http.MethodGet, path: "/bff/portal/api/department-records"},
+		{name: "driving licence read", appKey: "driving-licence", method: http.MethodGet, path: "/bff/driving-licence/api/config"},
+		{name: "driving licence test slots", appKey: "driving-licence", method: http.MethodGet, path: "/bff/driving-licence/api/test-slots?week=2"},
+		{name: "driving licence identity", appKey: "driving-licence", method: http.MethodGet, path: "/bff/driving-licence/api/identity"},
+		{name: "driving licence write", appKey: "driving-licence", method: http.MethodPost, path: "/bff/driving-licence/api/applications", withCSRF: true},
+		{name: "revenue licence read", appKey: "revenue-licence", method: http.MethodGet, path: "/bff/revenue-licence/api/vehicles"},
+		{name: "revenue licence write", appKey: "revenue-licence", method: http.MethodPost, path: "/bff/revenue-licence/api/vehicles/CAB-4471/renew", withCSRF: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			up := &fakeUpstream{response: upstreamRejectedResponse(http.StatusUnauthorized)}
+			s, apps := newDataRouteTestServer(t, up)
+			app := apps[tc.appKey]
+
+			sess := session.AuthSession{
+				AppKey:               tc.appKey,
+				AccessToken:          "at-live",
+				AccessTokenExpiresAt: time.Now().Add(time.Hour),
+			}
+			req := httptest.NewRequest(tc.method, tc.path, strings.NewReader(`{}`))
+			req.AddCookie(sessionCookieFor(t, s, app, sess))
+			if tc.withCSRF {
+				csrfCookie, csrfHeader := csrfCookieAndHeader(app)
+				req.AddCookie(csrfCookie)
+				req.Header.Set(csrfHeaderName, csrfHeader)
+			}
+			rec := httptest.NewRecorder()
+			s.Router().ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusBadGateway {
+				t.Fatalf("status = %d, want 502, body=%s", rec.Code, rec.Body.String())
+			}
+			if strings.Contains(rec.Body.String(), "upstream detail") {
+				t.Errorf("body = %q leaked the upstream error body", rec.Body.String())
+			}
+		})
+	}
+}
+
+// 403 is already an unambiguous answer — the token was understood and its
+// audience or scope was refused — so it keeps being forwarded untouched.
+func TestUpstreamForbiddenIsStillForwardedVerbatim(t *testing.T) {
+	up := &fakeUpstream{response: upstream.Response{
+		StatusCode:  http.StatusForbidden,
+		ContentType: "application/json",
+		Body:        []byte(`{"error":"insufficient_scope"}`),
+	}}
+	s, apps := newDataRouteTestServer(t, up)
+	app := apps["portal"]
+
+	cookie := sessionCookieFor(t, s, app, session.AuthSession{AppKey: "portal", AccessToken: "at-1"})
+	req := httptest.NewRequest(http.MethodGet, "/bff/portal/api/timeline", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	s.Router().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403 forwarded unchanged", rec.Code)
+	}
+	if rec.Body.String() != `{"error":"insufficient_scope"}` {
+		t.Errorf("body = %q, want the upstream body forwarded verbatim", rec.Body.String())
+	}
+}
+
+// Any other upstream status still passes straight through: only 401 was ever
+// ambiguous.
+func TestUpstreamNotFoundIsStillForwardedVerbatim(t *testing.T) {
+	up := &fakeUpstream{response: upstream.Response{
+		StatusCode:  http.StatusNotFound,
+		ContentType: "application/json",
+		Body:        []byte(`{"error":"no such vehicle"}`),
+	}}
+	s, apps := newDataRouteTestServer(t, up)
+	app := apps["revenue-licence"]
+
+	cookie := sessionCookieFor(t, s, app, session.AuthSession{AppKey: "revenue-licence", AccessToken: "at-vrl"})
+	req := httptest.NewRequest(http.MethodGet, "/bff/revenue-licence/api/vehicles", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	s.Router().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404 forwarded unchanged", rec.Code)
+	}
+	if rec.Body.String() != `{"error":"no such vehicle"}` {
+		t.Errorf("body = %q, want the upstream body forwarded verbatim", rec.Body.String())
 	}
 }

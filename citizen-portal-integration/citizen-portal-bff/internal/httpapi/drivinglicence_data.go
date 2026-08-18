@@ -27,7 +27,7 @@ func (s *Server) handleDrivingLicenceConfig(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	resp, err := s.Upstream.DrivingLicenceConfig(r.Context(), sess.AccessToken)
-	s.forwardUpstreamResponse(w, resp, err)
+	s.forwardSessionUpstreamResponse(w, r, sess, resp, err)
 }
 
 // handleDrivingLicenceTestSlots proxies GET /driving-licence/test-slots.
@@ -54,7 +54,7 @@ func (s *Server) handleDrivingLicenceTestSlots(w http.ResponseWriter, r *http.Re
 	}
 
 	resp, err := s.Upstream.DrivingLicenceTestSlots(r.Context(), sess.AccessToken, week)
-	s.forwardUpstreamResponse(w, resp, err)
+	s.forwardSessionUpstreamResponse(w, r, sess, resp, err)
 }
 
 // handleDrivingLicenceIdentity proxies GET /citizen/profile. This app's
@@ -70,7 +70,7 @@ func (s *Server) handleDrivingLicenceIdentity(w http.ResponseWriter, r *http.Req
 		return
 	}
 	resp, err := s.Upstream.CitizenProfile(r.Context(), sess.AccessToken)
-	s.forwardUpstreamResponse(w, resp, err)
+	s.forwardSessionUpstreamResponse(w, r, sess, resp, err)
 }
 
 // handleDrivingLicenceSubmitApplication proxies POST
@@ -93,6 +93,6 @@ func (s *Server) handleDrivingLicenceSubmitApplication(app *AppRoute) http.Handl
 		}
 
 		resp, err := s.Upstream.DrivingLicenceSubmitApplication(r.Context(), sess.AccessToken, r.Body)
-		s.forwardUpstreamResponse(w, resp, err)
+		s.forwardSessionUpstreamResponse(w, r, sess, resp, err)
 	}
 }
